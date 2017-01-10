@@ -1,0 +1,6 @@
+[package]
+name = "sports_record"
+version = "0.1.0"
+authors = ["Evan Merlock <vnmrlck@gmail.com>"]
+
+[dependencies]

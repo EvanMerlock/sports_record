@@ -1,18 +1,13 @@
-use std::net::{TcpListener, TcpStream, SocketAddr};
+use std::net::{TcpStream, SocketAddr};
 use std::thread;
 use std::thread::JoinHandle;
 use std::result::Result;
-use std::path::{Path, PathBuf};
-use std::fs::File;
-use std::sync::{Arc, RwLock};
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::io::Read;
 
 use server::errors::{ ServerError };
 
 pub struct ClientStream {
-    socket_channel: Receiver<ClientIPInformation>,
-
     client_handler_channel: Sender<ClientIPInformation>,
     client_handler_lock: JoinHandle<()>,
 
@@ -46,14 +41,13 @@ impl ClientThreadInformation {
 
 impl Drop for ClientThreadInformation {
     fn drop(&mut self) {
-        self.thread_channel.send(RecordingInstructions::Cleanup);
+        let _ = self.thread_channel.send(RecordingInstructions::Cleanup);
     }
 }
 
 impl ClientStream {
 
     pub fn new() -> Result<ClientStream, ServerError> {
-        let (socket_channel_send, socket_chanel_recv) = channel();
         let (client_ip_send, client_ip_recv) = channel();
         let (instruct_send, instruct_recv) = channel();
 
@@ -62,8 +56,6 @@ impl ClientStream {
         });
 
         let stream = ClientStream {
-            socket_channel: socket_chanel_recv,
-
             client_handler_channel: client_ip_send,
             client_handler_lock: client_handler_channel,
 
@@ -96,7 +88,7 @@ fn main_client_handler(ip_channel: Receiver<ClientIPInformation>, instruction_re
         match current_instruction {
             RecordingInstructions::Cleanup => {
                 for item in &thread_list {
-                    item.thread_channel.send(current_instruction);
+                    let _ = item.thread_channel.send(current_instruction);
                 }
 
                 end_exec = true;
@@ -105,7 +97,7 @@ fn main_client_handler(ip_channel: Receiver<ClientIPInformation>, instruction_re
                 handle_client_changes(&mut thread_list, &ip_channel);
 
                 for item in &thread_list {
-                    item.thread_channel.send(current_instruction);
+                    let _ = item.thread_channel.send(current_instruction);
                 }
             }
         }
@@ -140,7 +132,6 @@ fn individual_client_handler(address: SocketAddr, recv: Receiver<RecordingInstru
             let curr_instruction = recv.recv().unwrap();
             match curr_instruction {
                 RecordingInstructions::StartRecording(i) => {
-                    currently_executing_instruction = true;
                     let mut curr_tcp_stream = try!(TcpStream::connect(address));
 
                     let mut completed_stream = false;
@@ -165,7 +156,6 @@ fn individual_client_handler(address: SocketAddr, recv: Receiver<RecordingInstru
                     currently_executing_instruction = false;
                 },
                 RecordingInstructions::StopRecording => {
-                    currently_executing_instruction = true;
                     println!("StopRecording not currently supported!");
                     currently_executing_instruction = false;
                 }

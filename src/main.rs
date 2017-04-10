@@ -12,7 +12,6 @@ use std::path::Path;
 use std::io::{stdin, BufRead};
 
 use server::errors::ServerError;
-use server::messenger::{CurrentServerStatus, Messenger};
 use client::errors::ClientError;
 use server::client_handling::client_stream::RecordingInstructions;
 
@@ -49,18 +48,14 @@ fn run_server() -> Result<(), ServerError> {
         let unwrapped_line = try!(line);
         println!("Recv: {}", unwrapped_line);
         if unwrapped_line == "START" {
-            {
-                println!("RUNNING START Routine");
-                messenger.send(RecordingInstructions::StartRecording(1));
-            }
+            println!("RUNNING START Routine");
+            let _ = messenger.send(RecordingInstructions::StartRecording(1));
         } else if unwrapped_line == "STOP" {
-            {
-                println!("RUNNING STOP Routine");
-                messenger.send(RecordingInstructions::StopRecording);
-            }
+            println!("RUNNING STOP Routine");
+            let _ = messenger.send(RecordingInstructions::StopRecording);
         } else if unwrapped_line == "CLEAN" {
             println!("RUNNING CLEAN Routine");
-            messenger.send(RecordingInstructions::Cleanup);
+            let _ = messenger.send(RecordingInstructions::Cleanup);
         }
     }
 

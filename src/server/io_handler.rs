@@ -3,12 +3,10 @@ extern crate uuid;
 use std::io::prelude::*;
 use std::net::{TcpStream, Shutdown};
 use std::str;
-use std::sync::{Arc, RwLock};
-use std::net::SocketAddr;
 use std::sync::mpsc::Sender;
 
 use server::errors::ServerError;
-use server::client_handling::client_stream::{ClientIPInformation, RecordingInstructions};
+use server::client_handling::client_stream::{ClientIPInformation};
 
 #[derive(Debug)]
 enum IOCode {
@@ -49,9 +47,7 @@ pub fn stream_handler(mut stream: TcpStream, ip_list_sender: Sender<ClientIPInfo
 
                         client_addr.set_port(client_port);
                         println!("New Client: {:?} ", client_addr);
-                        {
-                            ip_list_sender.send(ClientIPInformation::Add(client_addr));
-                        }
+                        let _ = ip_list_sender.send(ClientIPInformation::Add(client_addr));
                         let _ = stream.shutdown(Shutdown::Both);
                         continue;
                     },

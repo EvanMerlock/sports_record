@@ -2,17 +2,15 @@ use iron::prelude::*;
 use iron::Listening;
 use router::Router;
 
-use std::net::{TcpListener, TcpStream, SocketAddr};
+use std::net::{TcpListener, SocketAddr};
 use std::thread;
 use std::result::Result;
 use std::path::{Path, PathBuf};
 use std::fs::File;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
 use std::sync::mpsc::{Sender};
 
-use server::video_receiver;
 use server::client_handling::client_stream::*;
-use server::messenger::*;
 use server::io_handler;
 use server::web;
 use server::errors::{ ServerError, ServerErrorKind };

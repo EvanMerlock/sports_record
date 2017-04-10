@@ -132,12 +132,12 @@ fn handle_client_changes(thread_list: &mut Vec<ClientThreadInformation>, ip_chan
 
 fn individual_client_handler(address: SocketAddr, recv: Receiver<RecordingInstructions>) -> Result<(), ServerError> {
 
-    let curr_instruction = recv.recv().unwrap();
     let mut currently_cleaning = false;
     let mut currently_executing_instruction = false;
     
     while !currently_cleaning {
         while !currently_executing_instruction {
+            let curr_instruction = recv.recv().unwrap();
             match curr_instruction {
                 RecordingInstructions::StartRecording(i) => {
                     currently_executing_instruction = true;
@@ -162,18 +162,23 @@ fn individual_client_handler(address: SocketAddr, recv: Receiver<RecordingInstru
                             }
                         }
                     }
+                    currently_executing_instruction = false;
                 },
                 RecordingInstructions::StopRecording => {
+                    currently_executing_instruction = true;
                     println!("StopRecording not currently supported!");
                     currently_executing_instruction = false;
                 }
                 RecordingInstructions::Cleanup => {
                     currently_cleaning = true;
                     currently_executing_instruction = false;
+                    break;
                 }
             }
         }
+        println!("In clean-up loop");
     }
+    println!("Cleaning up");
 
     Ok(())
 }

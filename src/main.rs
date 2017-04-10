@@ -13,7 +13,7 @@ use std::io::{stdin, BufRead};
 
 use server::errors::ServerError;
 use client::errors::ClientError;
-use server::client_handling::client_stream::RecordingInstructions;
+use server::client_handling::client_stream::{RecordingInstructions, ClientIPInformation};
 
 fn main() {
 
@@ -38,6 +38,7 @@ fn run_server() -> Result<(), ServerError> {
     let server = try!(server::recording_server::RecordingServer::new(sock_tuple, &Path::new("output/maindb.db")));
 
     let messenger = server.get_instruction_sender();
+    let ip_messenger = server.get_ip_sender();
 
     server.start_handling_requests();
 
@@ -56,6 +57,19 @@ fn run_server() -> Result<(), ServerError> {
         } else if unwrapped_line == "CLEAN" {
             println!("RUNNING CLEAN Routine");
             let _ = messenger.send(RecordingInstructions::Cleanup);
+        } else if unwrapped_line.starts_with("REMOVE") {
+            let whitespace_iter = unwrapped_line.split_whitespace();
+            let whitespace_ip_iter = whitespace_iter.filter_map(|x| {
+                match string_to_socket(x) {
+                    Ok(e) => Some(e),
+                    Err(_) => None, 
+                }
+            });
+
+            for ip in whitespace_ip_iter {
+                println!("Removing: {:?}", ip);
+                let _ = ip_messenger.send(ClientIPInformation::Remove(ip));
+            }
         }
     }
 

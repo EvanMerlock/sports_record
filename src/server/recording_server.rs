@@ -21,8 +21,8 @@ pub struct RecordingServer {
     listener: Arc<TcpListener>,
     iron_server: Listening,
     sql_db_location: PathBuf,
-    pub ip_sender: Sender<ClientIPInformation>,
-    pub instruction_sender: Sender<RecordingInstructions>,
+    ip_sender: Sender<ClientIPInformation>,
+    instruction_sender: Sender<RecordingInstructions>,
     client_stream_handler: ClientStream,
 }
 
@@ -62,6 +62,10 @@ impl RecordingServer {
 
     pub fn get_instruction_sender(&self) -> Sender<RecordingInstructions> {
         self.instruction_sender.clone()
+    }
+
+    pub fn get_ip_sender(&self) -> Sender<ClientIPInformation> {
+        self.ip_sender.clone()
     }
 
     pub fn start_handling_requests(&self) {

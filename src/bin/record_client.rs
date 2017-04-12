@@ -3,7 +3,7 @@ extern crate sports_record;
 use std::net::{SocketAddr, AddrParseError};
 use std::str::FromStr;
 
-use sports_record::client::errors::ClientError;
+use sports_record::client::ClientError;
 use sports_record::client::client_struct::Client;
 
 fn main() {

@@ -5,7 +5,7 @@ use std::result::Result;
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::io::Read;
 
-use server::errors::{ ServerError };
+use server::ServerError;
 
 pub struct ClientStream {
     client_handler_channel: Sender<ClientIPInformation>,

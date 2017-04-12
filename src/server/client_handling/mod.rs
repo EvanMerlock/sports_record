@@ -1,1 +1,3 @@
-pub mod client_stream;
+pub use self::client_stream::*;
+
+mod client_stream;

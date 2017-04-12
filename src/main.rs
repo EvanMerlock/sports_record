@@ -5,9 +5,9 @@ use std::str::FromStr;
 use std::path::Path;
 use std::io::{stdin, BufRead};
 
-use sports_record::server::errors::ServerError;
-use sports_record::server::recording_server::RecordingServer;
-use sports_record::server::client_handling::client_stream::{RecordingInstructions, ClientIPInformation};
+use sports_record::server::ServerError;
+use sports_record::server::RecordingServer;
+use sports_record::server::client_handling::{RecordingInstructions, ClientIPInformation};
 
 fn main() {
     let _ = run_server();

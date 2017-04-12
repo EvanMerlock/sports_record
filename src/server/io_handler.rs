@@ -6,7 +6,7 @@ use std::str;
 use std::sync::mpsc::Sender;
 
 use server::errors::ServerError;
-use server::client_handling::client_stream::{ClientIPInformation};
+use server::client_handling::{ClientIPInformation};
 
 #[derive(Debug)]
 enum IOCode {

@@ -1,41 +1,21 @@
-extern crate iron;
-extern crate router;
-extern crate rusqlite;
+extern crate sports_record;
 
-mod server;
-mod client;
-
-use std::env;
 use std::net::{SocketAddr, AddrParseError};
 use std::str::FromStr;
 use std::path::Path;
 use std::io::{stdin, BufRead};
 
-use server::errors::ServerError;
-use client::errors::ClientError;
-use server::client_handling::client_stream::{RecordingInstructions, ClientIPInformation};
+use sports_record::server::errors::ServerError;
+use sports_record::server::recording_server::RecordingServer;
+use sports_record::server::client_handling::client_stream::{RecordingInstructions, ClientIPInformation};
 
 fn main() {
-
-    let mut is_client = false;
-
-    for arg in env::args() {
-        println!("Argument: {}", arg);
-        if arg == "-client" {
-            is_client = true;
-        }
-    }
-
-    if !is_client {
-        let _ = run_server();
-    } else {
-        let _ = run_client();
-    }
+    let _ = run_server();
 }
 
 fn run_server() -> Result<(), ServerError> {
     let sock_tuple = try!(strs_to_socket_tuple("127.0.0.1:8000", "127.0.0.1:8080"));
-    let server = try!(server::recording_server::RecordingServer::new(sock_tuple, &Path::new("output/maindb.db")));
+    let server = try!(RecordingServer::new(sock_tuple, &Path::new("output/maindb.db")));
 
     let messenger = server.get_instruction_sender();
     let ip_messenger = server.get_ip_sender();
@@ -75,15 +55,6 @@ fn run_server() -> Result<(), ServerError> {
 
     Ok(())
 
-}
-
-fn run_client() -> Result<(), ClientError> {
-    let sock_addr = try!(strs_to_socket_tuple("127.0.0.1:8000", "127.0.0.1:9000"));
-    let client = try!(client::client_struct::Client::new(sock_addr));
-
-    client.handle();
-
-    Ok(())
 }
 
 fn strs_to_socket_tuple(ip_one: &str, ip_two: &str) -> Result<(SocketAddr, SocketAddr), AddrParseError> {

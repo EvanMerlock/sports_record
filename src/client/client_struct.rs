@@ -1,14 +1,15 @@
 use ffmpeg_sys::*;
+use uuid::Uuid;
 
 use std::net::{SocketAddr, TcpStream, TcpListener};
 use client::errors::ClientError;
 use std::io::{Write};
-use std::thread;
-use std::time::Duration;
+use std::fs::File;
 
 use std::slice::from_raw_parts;
 use std::ptr;
 use std::ffi::CString;
+use std::mem;
 
 #[derive(Debug)]
 pub struct Client {
@@ -55,6 +56,24 @@ fn pad_output_vec(vec: &mut Vec<u8>, pad_by: usize) {
     }
 }
 
+struct CodecStorage {
+    encoding_context: *mut AVCodecContext,
+    decoding_context: *mut AVCodecContext,
+    jpeg_context: *mut AVCodecContext,
+}
+
+impl CodecStorage {
+
+    fn new(enc: *mut AVCodecContext, dec: *mut AVCodecContext, jpeg: *mut AVCodecContext) -> CodecStorage {
+        CodecStorage {
+            encoding_context: enc,
+            decoding_context: dec,
+            jpeg_context: jpeg,
+        }
+    }
+
+}
+
 unsafe fn send_video(stream: &mut TcpStream) {
     av_register_all();
     avdevice_register_all();
@@ -63,6 +82,12 @@ unsafe fn send_video(stream: &mut TcpStream) {
     //CODEC ALLOCATION
     let encoding_tuple = allocate_encoding_codec();
     let decoding_tuple = allocate_decoding_codec();
+    let jpeg_tuple = allocate_jpeg_codec();
+
+    let codec_storage: CodecStorage = CodecStorage::new(encoding_tuple.1, decoding_tuple.1, jpeg_tuple.1);
+
+    //SWS ALLOCATION
+    let sws_context: *mut SwsContext = allocate_sws_context();
 
     //INPUT ALLOCATION
     let mut input_context_ptr = ptr::null_mut();
@@ -76,20 +101,48 @@ unsafe fn send_video(stream: &mut TcpStream) {
 
     av_dump_format(input_context_ptr, 0, CString::new("/dev/video0").unwrap().as_ptr(), 0);
 
-    for _ in 0..25 {
+    for pts in 0..100 {
         let pkt = av_packet_alloc();
         av_read_frame(input_context_ptr, pkt);
 
-        transcode_packet(decoding_tuple.1, encoding_tuple.1, &(*pkt), stream);
+        transcode_packet(&codec_storage, sws_context, &(*pkt), pts, stream);
     }
 
     encode_raw_frame(encoding_tuple.1, ptr::null_mut(), stream);
 
 }
 
-unsafe fn transcode_packet(decoding_context: *mut AVCodecContext, encoding_context: *mut AVCodecContext, input_packet: &AVPacket, stream: &mut TcpStream) {
-    let raw_frame = decode_raw_packet(decoding_context, input_packet);
-    encode_raw_frame(encoding_context, raw_frame, stream)
+unsafe fn transcode_packet(context_storage: &CodecStorage, sws_context: *mut SwsContext, input_packet: &AVPacket, pts: i64, stream: &mut TcpStream) -> Result<(), ClientError> {
+    let raw_frame: *mut AVFrame = decode_raw_packet(context_storage.decoding_context, input_packet);
+
+    let scaled_frame = change_pixel_format(raw_frame, sws_context, 32, pts);
+
+    let file = try!(File::create(String::from("picture_") + Uuid::new_v4().to_string().as_ref() + String::from(".jpeg").as_ref()));
+    encode_jpeg_frame(context_storage.jpeg_context, scaled_frame, file);
+
+    encode_raw_frame(context_storage.encoding_context, scaled_frame, stream);
+
+    Ok(())
+}
+
+unsafe fn change_pixel_format(old_frame: *mut AVFrame, sws_context: *mut SwsContext, align: i32, pts: i64) -> *mut AVFrame {
+    let scaled_frame = av_frame_alloc();
+    (*scaled_frame).width = (*old_frame).width;
+    (*scaled_frame).height = (*old_frame).height;
+    (*scaled_frame).format = 0;
+    (*scaled_frame).pts = pts;
+
+    let scaled_frame_data_ptr: *mut *mut u8 = (*scaled_frame).data.as_mut_ptr();
+    let scaled_frame_linesize_ptr: *mut i32 = (*scaled_frame).linesize.as_mut_ptr();
+
+    av_image_alloc(scaled_frame_data_ptr, scaled_frame_linesize_ptr, (*old_frame).width, (*old_frame).height, AV_PIX_FMT_YUV420P, align);
+
+    let raw_frame_data_ptr: *const *const u8 = (*old_frame).data.as_ptr() as *const *const u8;
+    let raw_frame_linesize_ptr: *mut i32 = (*old_frame).linesize.as_mut_ptr();
+
+    let new_height = sws_scale(sws_context, raw_frame_data_ptr, raw_frame_linesize_ptr, 0, 480, scaled_frame_data_ptr, scaled_frame_linesize_ptr);
+
+    scaled_frame
 }
 
 unsafe fn decode_raw_packet(codec: *mut AVCodecContext, packet: &AVPacket) -> *mut AVFrame {
@@ -111,7 +164,6 @@ unsafe fn decode_raw_packet(codec: *mut AVCodecContext, packet: &AVPacket) -> *m
 }
 
 unsafe fn encode_raw_frame(codec: *mut AVCodecContext, frame: *mut AVFrame, stream: &mut TcpStream) {    
-    let packet = av_packet_alloc();
     let ret = avcodec_send_frame(codec, frame);
 
     if ret < 0 {
@@ -119,9 +171,13 @@ unsafe fn encode_raw_frame(codec: *mut AVCodecContext, frame: *mut AVFrame, stre
     }
 
     while ret >= 0 {
+        let packet = av_packet_alloc();
         let ret = avcodec_receive_packet(codec, packet);
 
-        if ret == -11 || ret == AVERROR_EOF {
+        if ret == -11 {
+            return;
+        } else if ret == AVERROR_EOF {
+            println!("EOF");
             return;
         } else if ret < 0 {
             panic!("issue receiving the frame from the encoder: {}", ret);
@@ -132,6 +188,27 @@ unsafe fn encode_raw_frame(codec: *mut AVCodecContext, frame: *mut AVFrame, stre
 
     }
 
+}
+
+unsafe fn encode_jpeg_frame(codec: *mut AVCodecContext, frame: *mut AVFrame, mut file: File) {
+    let packet = av_packet_alloc();
+    let ret = avcodec_send_frame(codec, frame);
+
+    if ret < 0 {
+        panic!("issue sending the frame to the encoder: {}", ret);
+    }
+
+    let ret = avcodec_receive_packet(codec, packet);
+
+    if ret == -11 || ret == AVERROR_EOF {
+        print!("e");
+        return;
+    } else if ret < 0 {
+        panic!("issue receiving the frame from the encoder: {}", ret);
+    }
+
+    let _ = file.write(from_raw_parts((*packet).data, (*packet).size as usize));
+    av_packet_unref(packet);
 }
 
 unsafe fn allocate_encoding_codec() -> (*mut AVCodec, *mut AVCodecContext) {
@@ -177,7 +254,7 @@ unsafe fn allocate_decoding_codec() -> (*mut AVCodec, *mut AVCodecContext) {
 
     decoding_context.gop_size = 10;
     decoding_context.max_b_frames = 1;
-    decoding_context.pix_fmt = AV_PIX_FMT_YUV422P;
+    decoding_context.pix_fmt = AV_PIX_FMT_YUYV422;
 
     if avcodec_open2(decoding_context_ptr, codec_ptr, ptr::null_mut()) < 0 {
         panic!("couldn't open decoding codec");
@@ -186,4 +263,37 @@ unsafe fn allocate_decoding_codec() -> (*mut AVCodec, *mut AVCodecContext) {
     (codec_ptr, decoding_context_ptr)
 
 
+}
+
+unsafe fn allocate_jpeg_codec() -> (*mut AVCodec, *mut AVCodecContext) {
+
+    let codec_ptr: *mut AVCodec = avcodec_find_encoder(AV_CODEC_ID_JPEG2000);
+    let jpeg_context_ptr: *mut AVCodecContext = avcodec_alloc_context3(codec_ptr);
+
+    let ref mut jpeg_context: AVCodecContext = *jpeg_context_ptr;
+
+    jpeg_context.height = 480;
+    jpeg_context.width = 640;
+
+    jpeg_context.time_base = av_make_q(1, 25);
+
+    jpeg_context.pix_fmt = AV_PIX_FMT_YUV420P;
+
+    if avcodec_open2(jpeg_context_ptr, codec_ptr, ptr::null_mut()) < 0 {
+        panic!("couldn't open decoding codec");
+    }
+
+    (codec_ptr, jpeg_context_ptr)
+
+
+}
+
+unsafe fn allocate_sws_context() -> (*mut SwsContext) {
+    let cached = sws_getCachedContext(ptr::null_mut(), 640, 480, AV_PIX_FMT_YUYV422, 640, 480, AV_PIX_FMT_YUV420P, SWS_BICUBIC, ptr::null_mut(), ptr::null_mut(), ptr::null());
+
+    if cached.is_null() {
+        panic!("failed to alloc cached context");
+    }
+
+    cached
 }

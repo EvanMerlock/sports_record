@@ -3,7 +3,8 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::result::Result;
 use std::sync::mpsc::{Sender, Receiver, channel};
-use std::io::Read;
+use std::io::{Read, Write};
+use std::fs::File;
 
 use server::ServerError;
 
@@ -126,6 +127,8 @@ fn individual_client_handler(address: SocketAddr, recv: Receiver<RecordingInstru
 
     let mut currently_cleaning = false;
     let mut currently_executing_instruction = false;
+
+    let endcode = vec![0, 0, 1, 0xb7];
     
     while !currently_cleaning {
         while !currently_executing_instruction {
@@ -133,20 +136,22 @@ fn individual_client_handler(address: SocketAddr, recv: Receiver<RecordingInstru
             match curr_instruction {
                 RecordingInstructions::StartRecording(i) => {
                     let mut curr_tcp_stream = try!(TcpStream::connect(address));
+                    let mut curr_file = try!(File::create("video.mp4"));
 
                     let mut completed_stream = false;
 
                     while !completed_stream {
-                        let mut buffer = [0; 8];
+                        let mut buffer = [0; 1];
                         let results = curr_tcp_stream.read(&mut buffer);
 
                         match results {
                             Ok(i) if i == 0 => {
                                 println!("EOS in individual_client_handler");
                                 completed_stream = true;
+                                curr_file.write(endcode.as_slice());
                             }
                             Ok(..) => {
-                                println!("Received Data: {:?}", buffer);
+                                curr_file.write(&buffer);
                             }
                             Err(e) => {
                                 println!("Error: {:?}", e);

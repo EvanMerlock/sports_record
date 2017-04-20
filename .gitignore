@@ -1,2 +1,6 @@
 target
 output/
+
+*.mp4
+*.jpeg
+*.png

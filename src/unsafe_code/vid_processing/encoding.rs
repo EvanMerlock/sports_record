@@ -64,7 +64,7 @@ unsafe fn encode_raw_frame(codec: &mut AVCodecContext, frame: *mut AVFrame, stre
             return Err(UnsafeError::new(UnsafeErrorKind::ReceivePacket(ret)));
         }
 
-        stream.write(from_raw_parts((*packet).data, (*packet).size as usize));
+        let _ = stream.write(from_raw_parts((*packet).data, (*packet).size as usize));
         av_packet_unref(packet);
 
     }

@@ -1,17 +1,8 @@
 use unsafe_code::vid_processing::send_video;
 
-use ffmpeg_sys::*;
-use uuid::Uuid;
-
 use std::net::{SocketAddr, TcpStream, TcpListener};
 use client::errors::ClientError;
 use std::io::{Write};
-use std::fs::File;
-
-use std::slice::from_raw_parts;
-use std::ptr;
-use std::ffi::CString;
-use std::mem;
 
 #[derive(Debug)]
 pub struct Client {

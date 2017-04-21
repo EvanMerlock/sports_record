@@ -148,10 +148,10 @@ fn individual_client_handler(address: SocketAddr, recv: Receiver<RecordingInstru
                             Ok(i) if i == 0 => {
                                 println!("EOS in individual_client_handler");
                                 completed_stream = true;
-                                curr_file.write(endcode.as_slice());
+                                let _ = curr_file.write(endcode.as_slice());
                             }
                             Ok(..) => {
-                                curr_file.write(&buffer);
+                                let _ = curr_file.write(&buffer);
                             }
                             Err(e) => {
                                 println!("Error: {:?}", e);

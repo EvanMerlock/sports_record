@@ -14,7 +14,7 @@ fn run_client() -> Result<(), ClientError> {
     let sock_addr = try!(strs_to_socket_tuple("127.0.0.1:8000", "127.0.0.1:9000"));
     let client = try!(Client::new(sock_addr));
 
-    client.handle();
+    let _ = client.handle();
 
     Ok(())
 }

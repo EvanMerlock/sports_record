@@ -6,3 +6,4 @@ extern crate uuid;
 
 pub mod server;
 pub mod client;
+pub mod unsafe_code;

@@ -1,4 +1,5 @@
 use unsafe_code::{UnsafeError, UnsafeErrorKind};
+use unsafe_code::img_processing::magick;
 
 use std::io::Write;
 use std::fs::File;
@@ -57,7 +58,11 @@ unsafe fn encode_jpeg_frame(codec: &mut AVCodecContext, frame: &AVFrame, mut fil
         return Err(UnsafeError::new(UnsafeErrorKind::ReceivePacket(ret)));
     }
 
-    let _ = file.write(from_raw_parts((*packet).data, (*packet).size as usize));
+    let img_vec = from_raw_parts((*packet).data, (*packet).size as usize).to_vec();
+    let img_vec = try!(magick::convert_colorspace(img_vec));
+
+
+    let _ = file.write(img_vec.as_slice());
     av_packet_unref(packet);
 
     Ok(())

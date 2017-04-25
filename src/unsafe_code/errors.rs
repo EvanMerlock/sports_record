@@ -20,20 +20,22 @@ pub enum UnsafeErrorKind {
     SWSError,
 
     IOError(io::Error),
+    ImageMagickError(&'static str),
 }
 
 impl fmt::Display for UnsafeErrorKind {
     fn fmt(&self, fmter: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            &UnsafeErrorKind::OpenDecoder(ref i)    => write!(fmter, "An issue occured while opening the decoder: ERR {}",  i),
-            &UnsafeErrorKind::OpenEncoder(ref i)    => write!(fmter, "An issue occured while opening the encoder: ERR {}",  i),
-            &UnsafeErrorKind::ReceiveFrame(ref i)   => write!(fmter, "An issue occured while receiving a frame: ERR {}",    i),
-            &UnsafeErrorKind::ReceivePacket(ref i)  => write!(fmter, "An issue occured while receiving a packet: ERR {}",   i),
-            &UnsafeErrorKind::SendFrame(ref i)      => write!(fmter, "An issue occured while sending a frame: ERR {}",      i),
-            &UnsafeErrorKind::SendPacket(ref i)     => write!(fmter, "An issue occured while sending a packet: ERR {}",     i),
-            &UnsafeErrorKind::OpenInput(ref i)      => write!(fmter, "An issue occured while opening the input: ERR {}",    i),
-            &UnsafeErrorKind::OpenSWSContext        => write!(fmter, "An issue occured setting up SWS"),
-            &UnsafeErrorKind::SWSError              => write!(fmter, "An unknown error occured from SWS. Check the server logs for SWS entries"),
+            &UnsafeErrorKind::OpenDecoder(ref i)        => write!(fmter, "An issue occured while opening the decoder: ERR {}",  i),
+            &UnsafeErrorKind::OpenEncoder(ref i)        => write!(fmter, "An issue occured while opening the encoder: ERR {}",  i),
+            &UnsafeErrorKind::ReceiveFrame(ref i)       => write!(fmter, "An issue occured while receiving a frame: ERR {}",    i),
+            &UnsafeErrorKind::ReceivePacket(ref i)      => write!(fmter, "An issue occured while receiving a packet: ERR {}",   i),
+            &UnsafeErrorKind::SendFrame(ref i)          => write!(fmter, "An issue occured while sending a frame: ERR {}",      i),
+            &UnsafeErrorKind::SendPacket(ref i)         => write!(fmter, "An issue occured while sending a packet: ERR {}",     i),
+            &UnsafeErrorKind::OpenInput(ref i)          => write!(fmter, "An issue occured while opening the input: ERR {}",    i),
+            &UnsafeErrorKind::OpenSWSContext            => write!(fmter, "An issue occured setting up SWS"),
+            &UnsafeErrorKind::SWSError                  => write!(fmter, "An unknown error occured from SWS. Check the server logs for SWS entries"),
+            &UnsafeErrorKind::ImageMagickError(ref e)   => write!(fmter, "{}",                                                  e),
 
             &UnsafeErrorKind::IOError(ref e)        => e.fmt(fmter),
         }

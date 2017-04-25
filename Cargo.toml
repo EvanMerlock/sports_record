@@ -10,3 +10,4 @@ uuid = { version = "0.2", features = ["v4"] }
 rusqlite = "0.10.1"
 ffmpeg-sys = "3.2.1"
 libc = "0.2.19"
+magick_rust = { path = "../magick-rust" }

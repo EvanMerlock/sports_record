@@ -1,5 +1,3 @@
-extern crate uuid;
-
 use std::io::prelude::*;
 use std::net::{TcpStream, Shutdown};
 use std::str;
@@ -18,9 +16,6 @@ pub fn stream_handler(mut stream: TcpStream, ip_list_sender: Sender<ClientIPInfo
 
     println!("Received client");
     let mut completed_stream = false;
-
-    // let outfile_name = "output/video_".to_string() + &uuid::Uuid::new_v4().to_string() + ".mp4";
-    // let mut out_file = try!(File::create(outfile_name));
     
     let mut client_port: u16 = 0;
 

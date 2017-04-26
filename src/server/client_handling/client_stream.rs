@@ -1,4 +1,4 @@
-use std::net::{TcpStream, SocketAddr};
+use std::net::{TcpStream, SocketAddr, Shutdown};
 use std::thread;
 use std::thread::JoinHandle;
 use std::result::Result;
@@ -23,7 +23,7 @@ pub struct ClientThreadInformation {
 
 #[derive(Debug)]
 pub enum ClientIPInformation {
-    Add(SocketAddr),
+    Add(TcpStream),
     Remove(SocketAddr),
 }
 
@@ -106,43 +106,54 @@ fn main_client_handler(ip_channel: Receiver<ClientIPInformation>, instruction_re
 
 }
 
-fn handle_client_changes(thread_list: &mut Vec<ClientThreadInformation>, ip_channel: &Receiver<ClientIPInformation>) {
+fn handle_client_changes(thread_list: &mut Vec<ClientThreadInformation>, ip_channel: &Receiver<ClientIPInformation>) -> Result<(), ServerError> {
     for ip_info in ip_channel.try_iter() {
         match ip_info {
             ClientIPInformation::Add(i) => {
                 let (send, recv) = channel();
+                let socket_addr = try!(i.peer_addr());
                 let temp_thread_handle = thread::spawn(move || {
-                    let _ = individual_client_handler(i.clone(), recv);
+                    let _ = individual_client_handler(i, recv);
                 });
-                thread_list.push(ClientThreadInformation::new(i.clone(), temp_thread_handle, send));
+                thread_list.push(ClientThreadInformation::new(socket_addr, temp_thread_handle, send));
             }, 
             ClientIPInformation::Remove(i) => {
-                thread_list.retain(|x| !(x.socket_addr == i));
+                //thread_list.retain(|x| !(x.socket_addr == i));
+                let mut new_thread_list: Vec<ClientThreadInformation> = Vec::new();
+
+                for thread_info in thread_list.drain(0..) {
+                    if !(thread_info.socket_addr == i) {
+                        new_thread_list.push(thread_info);
+                    } else {
+                        thread_info.thread_channel.send(RecordingInstructions::Cleanup);
+                    }
+                }
+                thread_list.append(&mut new_thread_list);
             },
         }
     }
+    Ok(())
 }
 
-fn individual_client_handler(address: SocketAddr, recv: Receiver<RecordingInstructions>) -> Result<(), ServerError> {
+fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInstructions>) -> Result<(), ServerError> {
 
     let mut currently_cleaning = false;
-    let mut currently_executing_instruction = false;
 
     let endcode = vec![0, 0, 1, 0xb7];
     
     while !currently_cleaning {
-        while !currently_executing_instruction {
+        loop {
             let curr_instruction = recv.recv().unwrap();
             match curr_instruction {
                 RecordingInstructions::StartRecording(i) => {
-                    let mut curr_tcp_stream = try!(TcpStream::connect(address));
+                    let _ = stream.write(b"--STRT");
                     let mut curr_file = try!(File::create("video.mp4"));
 
                     let mut completed_stream = false;
 
                     while !completed_stream {
                         let mut buffer = [0; 1];
-                        let results = curr_tcp_stream.read(&mut buffer);
+                        let results = stream.read(&mut buffer);
 
                         match results {
                             Ok(i) if i == 0 => {
@@ -158,20 +169,18 @@ fn individual_client_handler(address: SocketAddr, recv: Receiver<RecordingInstru
                             }
                         }
                     }
-                    currently_executing_instruction = false;
                 },
                 RecordingInstructions::StopRecording => {
-                    println!("StopRecording not currently supported!");
-                    currently_executing_instruction = false;
+                    let _ = stream.write(b"--STOP");
                 }
                 RecordingInstructions::Cleanup => {
                     currently_cleaning = true;
-                    currently_executing_instruction = false;
                     break;
                 }
             }
         }
         println!("In clean-up loop");
+        stream.shutdown(Shutdown::Both);
     }
     println!("Cleaning up");
 

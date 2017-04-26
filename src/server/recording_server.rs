@@ -10,8 +10,6 @@ use std::fs::File;
 use std::sync::{Arc};
 use std::sync::mpsc::{Sender};
 
-use server::io_handler;
-
 use server::client_handling::*;
 use server::web;
 use server::{ ServerError, ServerErrorKind };
@@ -74,12 +72,11 @@ impl RecordingServer {
         let ip_sender = self.ip_sender.clone();
         thread::spawn(move || {
             for stream in listener.incoming() {
-                let ip_sender = ip_sender.clone();
+                // let ip_sender = ip_sender.clone();
                 match stream {
                     Ok(stream) => {
-                        thread::spawn(move || {
-                            let _ = io_handler::stream_handler(stream, ip_sender);
-                        });
+                            println!("Received client");
+                            let _ = ip_sender.send(ClientIPInformation::Add(stream));
                     }
                     Err(e) => { println!("Err occured: {}", e) }
                 }

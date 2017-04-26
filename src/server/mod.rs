@@ -1,10 +1,8 @@
-pub mod client_handling;
-
+mod errors;
+mod recording_server;
 mod web;
-mod io_handler;
+
+pub mod client_handling;
 
 pub use self::errors::*;
 pub use self::recording_server::*;
-
-mod errors;
-mod recording_server;

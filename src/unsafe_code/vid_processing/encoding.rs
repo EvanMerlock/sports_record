@@ -9,9 +9,9 @@ use std::slice::from_raw_parts;
 
 use ffmpeg_sys::*;
 
-unsafe fn allocate_encoding_codec(height: i32, width: i32, time_base: AVRational, framerate: AVRational) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
+unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, framerate: AVRational) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
 
-    let codec_ptr: *mut AVCodec = avcodec_find_encoder(AV_CODEC_ID_H264);
+    let codec_ptr: *mut AVCodec = avcodec_find_encoder(codec_type);
     let encoding_context_ptr: *mut AVCodecContext = avcodec_alloc_context3(codec_ptr);
 
     let ref mut encoding_context: AVCodecContext = *encoding_context_ptr;
@@ -27,7 +27,9 @@ unsafe fn allocate_encoding_codec(height: i32, width: i32, time_base: AVRational
     encoding_context.max_b_frames = 1;
     encoding_context.pix_fmt = AV_PIX_FMT_YUV420P;
 
-    av_opt_set(encoding_context.priv_data, CString::new("preset").unwrap().as_ptr(), CString::new("slow").unwrap().as_ptr(), 0);
+    if codec_type == AV_CODEC_ID_H264 {
+        av_opt_set(encoding_context.priv_data, CString::new("preset").unwrap().as_ptr(), CString::new("slow").unwrap().as_ptr(), 0);
+    }
 
     let ret = avcodec_open2(encoding_context_ptr, codec_ptr, ptr::null_mut());
     if ret < 0 {
@@ -38,9 +40,9 @@ unsafe fn allocate_encoding_codec(height: i32, width: i32, time_base: AVRational
 
 }
 
-pub fn create_encoding_context<'a>(height: i32, width: i32, time_base: AVRational, framerate: AVRational) -> Result<&'a mut AVCodecContext, UnsafeError> {
+pub fn create_encoding_context<'a>(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, framerate: AVRational) -> Result<&'a mut AVCodecContext, UnsafeError> {
     unsafe {
-        match allocate_encoding_codec(height, width, time_base, framerate) {
+        match allocate_encoding_codec(codec_type, height, width, time_base, framerate) {
             Ok((_, context)) => Ok(&mut *context),
             Err(e) => Err(e),
         }

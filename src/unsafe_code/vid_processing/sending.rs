@@ -17,7 +17,7 @@ pub fn send_video(stream: &mut TcpStream) -> Result<(), UnsafeError> {
     init_av();
 
     //CODEC ALLOCATION
-    let encoding_context: &mut AVCodecContext = try!(vid_processing::create_encoding_context(480, 640, make_av_rational(1, 25), make_av_rational(25, 1)));
+    let encoding_context: &mut AVCodecContext = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, make_av_rational(1, 25), make_av_rational(25, 1)));
     let decoding_context: &mut AVCodecContext = try!(vid_processing::create_decoding_context(AV_CODEC_ID_RAWVIDEO, 480, 640, make_av_rational(1, 25), make_av_rational(25, 1), AV_PIX_FMT_YUYV422));
     let jpeg_context: &mut AVCodecContext = try!(img_processing::create_jpeg_context(480, 640, make_av_rational(1, 25)));
 

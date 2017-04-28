@@ -13,3 +13,4 @@ extern crate serde_json;
 pub mod server;
 pub mod client;
 pub mod unsafe_code;
+pub mod config;

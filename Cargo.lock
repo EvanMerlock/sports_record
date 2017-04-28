@@ -6,6 +6,7 @@ dependencies = [
  "iron 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "magick_rust 0.6.4 (git+https://github.com/deadlyelectron/magick-rust.git)",
+ "messenger_plus 0.1.0",
  "router 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -290,6 +291,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "libc 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "messenger_plus"
+version = "0.1.0"
 
 [[package]]
 name = "mime"

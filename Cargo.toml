@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Evan Merlock <vnmrlck@gmail.com>"]
 
 [dependencies]
+messenger_plus = { path = "../messager_plus" }
+
 iron = "0.5.1"
 router = "0.5.0"
 

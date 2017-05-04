@@ -1,4 +1,5 @@
 use unsafe_code::UnsafeError;
+use messenger_plus::stream::DualMessenger;
 use uuid::Uuid;
 
 use std::ffi::CString;
@@ -13,7 +14,7 @@ use unsafe_code::img_processing;
 use unsafe_code::sws;
 use unsafe_code::input;
 
-pub fn send_video(stream: &mut TcpStream) -> Result<(), UnsafeError> {
+pub fn send_video(stream: &mut DualMessenger<TcpStream>) -> Result<(), UnsafeError> {
     init_av();
 
     //CODEC ALLOCATION
@@ -44,7 +45,7 @@ pub fn send_video(stream: &mut TcpStream) -> Result<(), UnsafeError> {
 
 }
 
-fn transcode_packet(contexts: &mut CodecStorage, sws_context: &mut SwsContext, packet: &AVPacket, pts: i64, stream: &mut TcpStream) -> Result<(), UnsafeError> {
+fn transcode_packet(contexts: &mut CodecStorage, sws_context: &mut SwsContext, packet: &AVPacket, pts: i64, stream: &mut DualMessenger<TcpStream>) -> Result<(), UnsafeError> {
     let raw_frame: &mut AVFrame = try!(vid_processing::decode_packet(contexts.decoding_context, packet));
 
     let scaled_frame: &mut AVFrame = try!(sws::change_pixel_format(raw_frame, sws_context, 32, pts));

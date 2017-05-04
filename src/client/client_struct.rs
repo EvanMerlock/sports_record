@@ -1,4 +1,5 @@
 use unsafe_code::vid_processing::send_video;
+use messenger_plus::stream::DualMessenger;
 
 use std::net::{SocketAddr, TcpStream, TcpListener};
 use client::errors::ClientError;
@@ -19,38 +20,31 @@ impl Client {
     }
 
     pub fn stream_handler(&mut self) -> Result<(), ClientError> {
-        let mut buffer = [0; 1];
-        let mut large_buffer: Vec<u8> = Vec::new();
+        let mut dual_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), &mut self.stream);
 
         let mut stream_open = true;
         
         while stream_open {
-            let results = self.stream.read(&mut buffer);
+            let results = dual_channel.read_next_message();
             match results {
-                Ok(i) if i == 0 => {
+                None => {
                     println!("server eos");
                     let stream_open = false;
                 },
-                Ok(..) => {
-                    large_buffer.push(buffer[0]);
-                    // first check to see if anymore instructions have been sent through
-                    if large_buffer.len() > 0 {
-                        let curr_data = String::from_utf8(large_buffer.clone());
-                        match curr_data {
-                            Ok(s) => {
-                                if s == "--STRT" {
-                                    println!("Sent video: {:?}", send_video(&mut self.stream));
-                                }
-                            },
-                            Err(e) => {
-                                panic!("something went terribly wrong! {:?}", e);
+                Some(v) => {
+                    // check to see if anymore instructions have been sent through
+                    let curr_data = String::from_utf8(v);
+                    match curr_data {
+                        Ok(s) => {
+                            if s == "START" {
+                                println!("Sent video: {:?}", send_video(&mut dual_channel));
                             }
+                        },
+                        Err(e) => {
+                            panic!("something went terribly wrong! {:?}", e);
                         }
                     }
                 },
-                Err(e) => {
-                    panic!("something went terribly wrong! {:?}", e);
-                }
             }
         }
 

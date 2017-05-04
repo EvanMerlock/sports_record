@@ -7,6 +7,7 @@ use std::io::{Read, Write};
 use std::fs::File;
 
 use server::ServerError;
+use messenger_plus::stream::{DualMessenger};
 
 pub struct ClientStream {
     client_handler_channel: Sender<ClientIPInformation>,
@@ -140,38 +141,38 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
     let mut currently_cleaning = false;
 
     let endcode = vec![0, 0, 1, 0xb7];
-    
+
+    let mut dual_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), &mut stream);
+
     while !currently_cleaning {
         loop {
             let curr_instruction = recv.recv().unwrap();
             match curr_instruction {
                 RecordingInstructions::StartRecording(i) => {
-                    let _ = stream.write(b"--STRT");
+                    let _ = dual_channel.write(b"START");
+                    println!("sent start code");
                     let mut curr_file = try!(File::create("video.mp4"));
 
                     let mut completed_stream = false;
 
                     while !completed_stream {
-                        let mut buffer = [0; 1];
-                        let results = stream.read(&mut buffer);
+                        println!("reading from dual channel");
+                        let results = dual_channel.read_next_message();
 
                         match results {
-                            Ok(i) if i == 0 => {
+                            None => {
                                 println!("EOS in individual_client_handler");
                                 completed_stream = true;
                                 let _ = curr_file.write(endcode.as_slice());
                             }
-                            Ok(..) => {
-                                let _ = curr_file.write(&buffer);
-                            }
-                            Err(e) => {
-                                println!("Error: {:?}", e);
+                            Some(v) => {
+                                let _ = curr_file.write(v.as_slice());
                             }
                         }
                     }
                 },
                 RecordingInstructions::StopRecording => {
-                    let _ = stream.write(b"--STOP");
+                    let _ = dual_channel.write(b"STOP");
                 }
                 RecordingInstructions::Cleanup => {
                     currently_cleaning = true;
@@ -180,9 +181,8 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
             }
         }
         println!("In clean-up loop");
-        stream.shutdown(Shutdown::Both);
     }
     println!("Cleaning up");
-
+    dual_channel.release().shutdown(Shutdown::Both);
     Ok(())
 }

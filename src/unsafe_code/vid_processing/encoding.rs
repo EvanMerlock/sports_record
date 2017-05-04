@@ -68,7 +68,6 @@ unsafe fn encode_raw_frame(codec: &mut AVCodecContext, frame: *mut AVFrame, stre
         }
 
         let res = stream.write(from_raw_parts((*packet).data, (*packet).size as usize));
-        println!("res: {:?}", res);
         av_packet_unref(packet);
 
     }

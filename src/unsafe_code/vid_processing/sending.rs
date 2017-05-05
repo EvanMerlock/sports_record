@@ -1,6 +1,7 @@
-use unsafe_code::UnsafeError;
 use messenger_plus::stream::DualMessenger;
 use uuid::Uuid;
+
+use std::io::Write;
 
 use std::ffi::CString;
 use std::net::TcpStream;
@@ -13,6 +14,9 @@ use unsafe_code::vid_processing;
 use unsafe_code::img_processing;
 use unsafe_code::sws;
 use unsafe_code::input;
+use unsafe_code::UnsafeError;
+
+use std::slice::from_raw_parts;
 
 pub fn send_video(stream: &mut DualMessenger<TcpStream>) -> Result<(), UnsafeError> {
     init_av();
@@ -34,18 +38,21 @@ pub fn send_video(stream: &mut DualMessenger<TcpStream>) -> Result<(), UnsafeErr
     for pts in 0..100 {
         let ref mut packet = input::read_input(input_context);
 
-        try!(transcode_packet(&mut context_storage, sws_context, &(*packet), pts, stream));
+        let curr_packet_vec = try!(transcode_packet(&mut context_storage, sws_context, packet, pts));
+        try!(write_to_stream(curr_packet_vec, stream));
 
         input::unallocate_packet(packet);
     }
 
-    try!(vid_processing::encode_null_frame(context_storage.encoding_context, stream));
+    let curr_packet_vec = try!(vid_processing::encode_null_frame(context_storage.encoding_context));
+    try!(write_to_stream(curr_packet_vec, stream));
+
 
     Ok(())
 
 }
 
-fn transcode_packet(contexts: &mut CodecStorage, sws_context: &mut SwsContext, packet: &AVPacket, pts: i64, stream: &mut DualMessenger<TcpStream>) -> Result<(), UnsafeError> {
+fn transcode_packet<'a>(contexts: &mut CodecStorage, sws_context: &mut SwsContext, packet: &AVPacket, pts: i64) -> Result<Vec<Box<AVPacket>>, UnsafeError> {
     let raw_frame: &mut AVFrame = try!(vid_processing::decode_packet(contexts.decoding_context, packet));
 
     let scaled_frame: &mut AVFrame = try!(sws::change_pixel_format(raw_frame, sws_context, 32, pts));
@@ -53,7 +60,15 @@ fn transcode_packet(contexts: &mut CodecStorage, sws_context: &mut SwsContext, p
     let file = try!(File::create(String::from("picture_") + Uuid::new_v4().to_string().as_ref() + String::from(".jpeg").as_ref()));
     try!(img_processing::write_frame_to_jpeg(contexts.jpeg_context, scaled_frame, file));
 
-    try!(vid_processing::encode_frame(contexts.encoding_context, scaled_frame, stream));
+    Ok(try!(vid_processing::encode_frame(contexts.encoding_context, scaled_frame)))
+}
 
+fn write_to_stream(mut frames: Vec<Box<AVPacket>>, writer: &mut Write) -> Result<(), UnsafeError> {
+    for frame in frames.drain(0..) {
+        unsafe {
+            try!(writer.write(from_raw_parts(frame.data, frame.size as usize)));
+            av_packet_unref(Box::into_raw(frame));
+        }
+    }
     Ok(())
 }

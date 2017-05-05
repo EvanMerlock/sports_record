@@ -50,8 +50,9 @@ pub fn create_encoding_context<'a>(codec_type: AVCodecID, height: i32, width: i3
     }
 }
 
-unsafe fn encode_raw_frame(codec: &mut AVCodecContext, frame: *mut AVFrame, stream: &mut DualMessenger<TcpStream>) -> Result<(), UnsafeError> {    
+unsafe fn encode_raw_frame(codec: &mut AVCodecContext, frame: *mut AVFrame) -> Result<Vec<Box<AVPacket>>, UnsafeError> {    
     let ret = avcodec_send_frame(codec, frame);
+    let mut vec = Vec::new();
 
     if ret < 0 {
         return Err(UnsafeError::new(UnsafeErrorKind::SendFrame(ret)));
@@ -62,28 +63,28 @@ unsafe fn encode_raw_frame(codec: &mut AVCodecContext, frame: *mut AVFrame, stre
         let ret = avcodec_receive_packet(codec, packet);
 
         if ret == -11 || ret == AVERROR_EOF {
-            return Ok(());
+            return Ok(vec);
         } else if ret < 0 {
             return Err(UnsafeError::new(UnsafeErrorKind::ReceivePacket(ret)));
         }
 
-        let res = stream.write(from_raw_parts((*packet).data, (*packet).size as usize));
-        av_packet_unref(packet);
+        vec.push(Box::from_raw(packet));
+        // let res = stream.write(from_raw_parts((*packet).data, (*packet).size as usize));
 
     }
 
-    Ok(())
+    Ok(vec)
 
 }
 
-pub fn encode_frame(context: &mut AVCodecContext, frame: &mut AVFrame, stream: &mut DualMessenger<TcpStream>) -> Result<(), UnsafeError> {
+pub fn encode_frame<'a>(context: &mut AVCodecContext, frame: &mut AVFrame) -> Result<Vec<Box<AVPacket>>, UnsafeError> {
     unsafe {
-        encode_raw_frame(context, frame, stream)
+        encode_raw_frame(context, frame)
     }
 }
 
-pub fn encode_null_frame(context: &mut AVCodecContext, stream: &mut DualMessenger<TcpStream>) -> Result<(), UnsafeError> {
+pub fn encode_null_frame<'a>(context: &mut AVCodecContext) -> Result<Vec<Box<AVPacket>>, UnsafeError> {
     unsafe {
-        encode_raw_frame(context, ptr::null_mut(), stream)
+        encode_raw_frame(context, ptr::null_mut())
     }
 }

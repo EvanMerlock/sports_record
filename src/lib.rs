@@ -10,6 +10,7 @@ extern crate magick_rust;
 extern crate serde;
 extern crate serde_json;
 extern crate messenger_plus;
+extern crate time;
 
 pub mod server;
 pub mod client;

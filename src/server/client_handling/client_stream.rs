@@ -140,8 +140,6 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
 
     let mut currently_cleaning = false;
 
-    let endcode = vec![0, 0, 1, 0xb7];
-
     let mut dual_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), &mut stream);
 
     while !currently_cleaning {
@@ -163,7 +161,6 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
                             None => {
                                 println!("EOS in individual_client_handler");
                                 completed_stream = true;
-                                let _ = curr_file.write(endcode.as_slice());
                             }
                             Some(v) => {
                                 let _ = curr_file.write(v.as_slice());

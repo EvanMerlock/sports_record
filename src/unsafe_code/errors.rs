@@ -37,7 +37,7 @@ impl fmt::Display for UnsafeErrorKind {
             &UnsafeErrorKind::SWSError                  => write!(fmter, "An unknown error occured from SWS. Check the server logs for SWS entries"),
             &UnsafeErrorKind::ImageMagickError(ref e)   => write!(fmter, "{}",                                                  e),
 
-            &UnsafeErrorKind::IOError(ref e)        => e.fmt(fmter),
+            &UnsafeErrorKind::IOError(ref e)            => e.fmt(fmter),
         }
     }
 }

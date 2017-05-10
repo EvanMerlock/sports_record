@@ -40,12 +40,10 @@ pub fn create_input_format<'a>(format_name: CString) -> &'a AVInputFormat {
     }
 }
 
-unsafe fn allocate_input_information(format: &AVFormatContext) -> InputInfo {
-    let input_streams = from_raw_parts((*format).streams, (*format).nb_streams as usize);
-    let main_input_stream = input_streams[0];
-    let time_base = (*main_input_stream).time_base;
+unsafe fn allocate_input_information(format: &AVStream) -> InputInfo {
+    let time_base = format.time_base;
 
-    let codec = (*main_input_stream).codec;
+    let codec = format.codec;
     let width = (*codec).width;
     let height = (*codec).height;
     let frame_rate = (*codec).framerate;
@@ -54,8 +52,26 @@ unsafe fn allocate_input_information(format: &AVFormatContext) -> InputInfo {
 
 }
 
-pub fn create_input_information(format: &AVFormatContext) -> InputInfo {
+pub fn create_input_information(format: &AVStream) -> InputInfo {
     unsafe {
         allocate_input_information(format)
+    }
+}
+
+unsafe fn get_specific_stream(format: &AVFormatContext, stream_num: usize) -> Option<*mut AVStream> {
+    let input_streams = from_raw_parts((*format).streams, (*format).nb_streams as usize);
+    if input_streams.len() < stream_num {
+        None
+    } else {
+        Some(input_streams[stream_num])
+    }
+}
+
+pub fn find_input_stream<'a>(format: &AVFormatContext, stream_num: usize) -> Option<&'a mut AVStream> {
+    unsafe {
+        match get_specific_stream(format, stream_num) {
+            Some(item) => Some(&mut *item),
+            None => None,
+        }
     }
 }

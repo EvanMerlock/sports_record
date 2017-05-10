@@ -1,5 +1,6 @@
 use unsafe_code::{UnsafeError, UnsafeErrorKind};
 use messenger_plus::stream::DualMessenger;
+use unsafe_code::packet::Packet;
 
 use std::net::TcpStream;
 use std::io::Write;
@@ -10,22 +11,20 @@ use std::slice::from_raw_parts;
 
 use ffmpeg_sys::*;
 
-unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, framerate: AVRational) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
+unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, gop_size: i32, max_b_frames: i32) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
 
     let codec_ptr: *mut AVCodec = avcodec_find_encoder(codec_type);
     let encoding_context_ptr: *mut AVCodecContext = avcodec_alloc_context3(codec_ptr);
 
     let ref mut encoding_context: AVCodecContext = *encoding_context_ptr;
 
-    encoding_context.bit_rate = 4000000;
     encoding_context.height = height;
     encoding_context.width = width;
 
     encoding_context.time_base = time_base;
-    encoding_context.framerate = framerate;
 
-    encoding_context.gop_size = 10;
-    encoding_context.max_b_frames = 1;
+    encoding_context.gop_size = gop_size;
+    encoding_context.max_b_frames = max_b_frames;
     encoding_context.pix_fmt = AV_PIX_FMT_YUV420P;
 
     if codec_type == AV_CODEC_ID_H264 {
@@ -41,16 +40,16 @@ unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32
 
 }
 
-pub fn create_encoding_context<'a>(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, framerate: AVRational) -> Result<&'a mut AVCodecContext, UnsafeError> {
+pub fn create_encoding_context(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, gop_size: i32, max_b_frames: i32) -> Result<Box<AVCodecContext>, UnsafeError> {
     unsafe {
-        match allocate_encoding_codec(codec_type, height, width, time_base, framerate) {
-            Ok((_, context)) => Ok(&mut *context),
+        match allocate_encoding_codec(codec_type, height, width, time_base, gop_size, max_b_frames) {
+            Ok((_, context)) => Ok(Box::from_raw(context)),
             Err(e) => Err(e),
         }
     }
 }
 
-unsafe fn encode_raw_frame(codec: &mut AVCodecContext, frame: *mut AVFrame) -> Result<Vec<Box<AVPacket>>, UnsafeError> {    
+unsafe fn encode_raw_frame(codec: &mut AVCodecContext, frame: *mut AVFrame) -> Result<Vec<Packet>, UnsafeError> {    
     let ret = avcodec_send_frame(codec, frame);
     let mut vec = Vec::new();
 
@@ -68,7 +67,7 @@ unsafe fn encode_raw_frame(codec: &mut AVCodecContext, frame: *mut AVFrame) -> R
             return Err(UnsafeError::new(UnsafeErrorKind::ReceivePacket(ret)));
         }
 
-        vec.push(Box::from_raw(packet));
+        vec.push(Packet::from(Box::from_raw(packet)));
         // let res = stream.write(from_raw_parts((*packet).data, (*packet).size as usize));
 
     }
@@ -77,13 +76,13 @@ unsafe fn encode_raw_frame(codec: &mut AVCodecContext, frame: *mut AVFrame) -> R
 
 }
 
-pub fn encode_frame<'a>(context: &mut AVCodecContext, frame: &mut AVFrame) -> Result<Vec<Box<AVPacket>>, UnsafeError> {
+pub fn encode_frame<'a>(context: &mut AVCodecContext, frame: &mut AVFrame) -> Result<Vec<Packet>, UnsafeError> {
     unsafe {
         encode_raw_frame(context, frame)
     }
 }
 
-pub fn encode_null_frame<'a>(context: &mut AVCodecContext) -> Result<Vec<Box<AVPacket>>, UnsafeError> {
+pub fn encode_null_frame<'a>(context: &mut AVCodecContext) -> Result<Vec<Packet>, UnsafeError> {
     unsafe {
         encode_raw_frame(context, ptr::null_mut())
     }

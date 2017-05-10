@@ -1,10 +1,11 @@
-use unsafe_code::vid_processing::send_video;
+use unsafe_code::vid_processing::{send_video, write_to_stream};
 use messenger_plus::stream::DualMessenger;
 
 use std::net::{SocketAddr, TcpStream, TcpListener};
 use client::errors::ClientError;
 use std::io::{Write, Read};
 use std::thread;
+use std::sync::mpsc::{channel, Sender, Receiver};
 
 #[derive(Debug)]
 pub struct Client {
@@ -37,7 +38,13 @@ impl Client {
                     match curr_data {
                         Ok(s) => {
                             if s == "START" {
-                                println!("Sent video: {:?}", send_video(&mut dual_channel));
+                                let (tx, rx) = channel();
+                                thread::spawn(|| {
+                                    println!("Sent video: {:?}", send_video(tx));
+                                });
+                                for item in rx {
+                                    let _ = write_to_stream(item, &mut dual_channel);
+                                }
                             }
                         },
                         Err(e) => {

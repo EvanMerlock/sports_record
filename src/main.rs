@@ -10,7 +10,7 @@ use sports_record::server::RecordingServer;
 use sports_record::server::client_handling::{RecordingInstructions, ClientIPInformation};
 
 fn main() {
-    let _ = run_server();
+    println!("{:?}", run_server());
 }
 
 fn run_server() -> Result<(), ServerError> {

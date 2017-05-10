@@ -1,14 +1,14 @@
 use ffmpeg_sys::*;
 
-pub struct CodecStorage<'a> {
-    pub encoding_context: &'a mut AVCodecContext,
-    pub decoding_context: &'a mut AVCodecContext,
-    pub jpeg_context: &'a mut AVCodecContext,
+pub struct CodecStorage {
+    pub encoding_context: Box<AVCodecContext>,
+    pub decoding_context: Box<AVCodecContext>,
+    pub jpeg_context: Box<AVCodecContext>,
 }
 
-impl<'a> CodecStorage<'a> {
+impl CodecStorage {
 
-    pub fn new<'b>(enc: &'b mut AVCodecContext, dec: &'b mut AVCodecContext, jpeg: &'b mut AVCodecContext) -> CodecStorage<'b> {
+    pub fn new(enc: Box<AVCodecContext>, dec: Box<AVCodecContext>, jpeg: Box<AVCodecContext>) -> CodecStorage {
         CodecStorage {
             encoding_context: enc,
             decoding_context: dec,
@@ -17,6 +17,8 @@ impl<'a> CodecStorage<'a> {
     }
 
 }
+
+unsafe impl Send for CodecStorage {}
 
 unsafe fn register_av() {
     av_register_all();

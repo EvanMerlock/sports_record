@@ -33,10 +33,10 @@ unsafe fn allocate_jpeg_codec(height: i32, width: i32, time_base: AVRational) ->
 
 }
 
-pub fn create_jpeg_context<'a>(height: i32, width: i32, time_base: AVRational) -> Result<&'a mut AVCodecContext, UnsafeError> {
+pub fn create_jpeg_context(height: i32, width: i32, time_base: AVRational) -> Result<Box<AVCodecContext>, UnsafeError> {
     unsafe {
         match allocate_jpeg_codec(height, width, time_base) {
-            Ok((_, context)) => Ok(&mut *context),
+            Ok((_, context)) => Ok(Box::from_raw(context)),
             Err(e) => Err(e),
         }
     }

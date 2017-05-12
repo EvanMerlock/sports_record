@@ -159,7 +159,7 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
 
                         match results {
                             None => {
-                                println!("EOS in individual_client_handler");
+                                println!("Client ended stream");
                                 completed_stream = true;
                             }
                             Some(v) => {

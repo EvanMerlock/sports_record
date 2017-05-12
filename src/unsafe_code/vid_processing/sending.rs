@@ -53,12 +53,12 @@ pub fn send_video<'a>(stream: Sender<Vec<Packet>>) -> Result<(), UnsafeError> {
             // SWS ALLOCATION
             let sws_context = sws::create_sws_context(480, 640, AV_PIX_FMT_YUYV422, AV_PIX_FMT_YUV420P).expect("failure to open SWS context");
 
-            thread::spawn(move || {
+            let mut render_thread_handle = thread::spawn(move || {
                 let mut time = 0;
                 for item in packet_rx.iter() {
                     match item {
                         PacketMessage::Packet(p) => {
-                            let conv_pkt_attempt = transcode_packet(&mut context_storage, sws_context, &p, time);
+                            let conv_pkt_attempt = transcode_packet(&mut context_storage, sws_context, p, time);
                             match conv_pkt_attempt {
                                 Ok(conv_pkt) => {
                                     stream.send(conv_pkt);
@@ -91,6 +91,8 @@ pub fn send_video<'a>(stream: Sender<Vec<Packet>>) -> Result<(), UnsafeError> {
             println!("sending flush signal");
             packet_tx.send(PacketMessage::Flush);
 
+            println!("render thread status: {:?}", render_thread_handle.join());
+
             Ok(())
         },
         None => {
@@ -100,7 +102,7 @@ pub fn send_video<'a>(stream: Sender<Vec<Packet>>) -> Result<(), UnsafeError> {
 
 }
 
-fn transcode_packet<'a>(contexts: &mut CodecStorage, sws_context: &mut SwsContext, packet: &Packet, frame_loc: i64) -> Result<Vec<Packet>, UnsafeError> {
+fn transcode_packet<'a>(contexts: &mut CodecStorage, sws_context: &mut SwsContext, packet: Packet, frame_loc: i64) -> Result<Vec<Packet>, UnsafeError> {
     let raw_frame: &mut AVFrame = try!(vid_processing::decode_packet(contexts.decoding_context.borrow_mut(), &packet));
 
     let scaled_frame: &mut AVFrame = try!(sws::change_pixel_format(raw_frame, sws_context.borrow_mut(), 32, frame_loc));

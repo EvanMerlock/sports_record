@@ -30,7 +30,7 @@ impl Client {
             match results {
                 None => {
                     println!("server eos");
-                    let stream_open = false;
+                    stream_open = false;
                 },
                 Some(v) => {
                     // check to see if anymore instructions have been sent through

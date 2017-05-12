@@ -54,6 +54,22 @@ impl From<AVPacket> for Packet {
     }
 }
 
+impl From<*mut AVPacket> for Packet {
+    fn from(pkt: *mut AVPacket) -> Packet {
+        unsafe {
+            let mut new_packet: AVPacket = mem::zeroed();
+
+		    av_init_packet(&mut new_packet);
+		    av_new_packet(&mut new_packet, (*pkt).size);
+            av_copy_packet(&mut new_packet, pkt);
+
+            av_packet_unref(pkt);
+
+            Packet(new_packet)
+        }
+    }
+}
+
 impl Drop for Packet {
     fn drop(&mut self) {
         unsafe {

@@ -119,7 +119,6 @@ fn handle_client_changes(thread_list: &mut Vec<ClientThreadInformation>, ip_chan
                 thread_list.push(ClientThreadInformation::new(socket_addr, temp_thread_handle, send));
             }, 
             ClientIPInformation::Remove(i) => {
-                //thread_list.retain(|x| !(x.socket_addr == i));
                 let mut new_thread_list: Vec<ClientThreadInformation> = Vec::new();
 
                 for thread_info in thread_list.drain(0..) {

@@ -87,7 +87,6 @@ impl Deref for Packet {
 }
 
 impl DerefMut for Packet {
-
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     } 

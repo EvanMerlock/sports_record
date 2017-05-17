@@ -147,21 +147,21 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
             match curr_instruction {
                 RecordingInstructions::StartRecording(i) => {
                     let _ = dual_channel.write(b"START");
-                    println!("sent start code");
                     let mut curr_file = try!(File::create("video.mp4"));
 
                     let mut completed_stream = false;
+                    let mut frames_read = 0;
 
                     while !completed_stream {
-                        println!("reading from dual channel");
                         let results = dual_channel.read_next_message();
 
                         match results {
                             None => {
-                                println!("Client ended stream");
+                                println!("Read {} messages from stream, now reached EOS.", frames_read);
                                 completed_stream = true;
                             }
                             Some(v) => {
+                                frames_read = frames_read + 1;
                                 let _ = curr_file.write(v.as_slice());
                             }
                         }

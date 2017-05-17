@@ -1,4 +1,4 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext};
 use messenger_plus::stream::DualMessenger;
 use unsafe_code::packet::Packet;
 
@@ -40,10 +40,10 @@ unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32
 
 }
 
-pub fn create_encoding_context(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, gop_size: i32, max_b_frames: i32) -> Result<Box<AVCodecContext>, UnsafeError> {
+pub fn create_encoding_context(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, gop_size: i32, max_b_frames: i32) -> Result<CodecContext, UnsafeError> {
     unsafe {
         match allocate_encoding_codec(codec_type, height, width, time_base, gop_size, max_b_frames) {
-            Ok((_, context)) => Ok(Box::from_raw(context)),
+            Ok((_, context)) => Ok(CodecContext::from(context)),
             Err(e) => Err(e),
         }
     }

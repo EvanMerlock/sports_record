@@ -42,9 +42,11 @@ impl Client {
                                 thread::spawn(|| {
                                     println!("Sent video: {:?}", send_video(tx));
                                 });
+                                let mut frames_sent = 0;
                                 for item in rx {
-                                    let _ = write_to_stream(item, &mut dual_channel);
+                                    frames_sent = frames_sent + write_to_stream(item, &mut dual_channel).unwrap_or(0);
                                 }
+                                println!("total frames sent: {}", frames_sent);
                             }
                         },
                         Err(e) => {

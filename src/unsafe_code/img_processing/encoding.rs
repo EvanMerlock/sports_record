@@ -1,4 +1,4 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext};
 use unsafe_code::img_processing::magick;
 
 use std::io::Write;
@@ -33,10 +33,10 @@ unsafe fn allocate_jpeg_codec(height: i32, width: i32, time_base: AVRational) ->
 
 }
 
-pub fn create_jpeg_context(height: i32, width: i32, time_base: AVRational) -> Result<Box<AVCodecContext>, UnsafeError> {
+pub fn create_jpeg_context(height: i32, width: i32, time_base: AVRational) -> Result<CodecContext, UnsafeError> {
     unsafe {
         match allocate_jpeg_codec(height, width, time_base) {
-            Ok((_, context)) => Ok(Box::from_raw(context)),
+            Ok((_, context)) => Ok(CodecContext::from(context)),
             Err(e) => Err(e),
         }
     }

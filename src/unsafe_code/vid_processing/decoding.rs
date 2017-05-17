@@ -1,4 +1,4 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext};
 use config::stream_config::*;
 
 use std::ptr;
@@ -59,19 +59,19 @@ unsafe fn allocate_decoding_codec_from_stream_config(stream_config: StreamConfig
     Ok((codec_ptr, decoding_context_ptr))
 }
 
-pub fn create_decoding_context(decoder_id: AVCodecID, height: i32, width: i32, framerate: AVRational, pixel_fmt: AVPixelFormat) -> Result<Box<AVCodecContext>, UnsafeError> {
+pub fn create_decoding_context(decoder_id: AVCodecID, height: i32, width: i32, framerate: AVRational, pixel_fmt: AVPixelFormat) -> Result<CodecContext, UnsafeError> {
     unsafe {
         match allocate_decoding_codec(decoder_id, height, width, framerate, pixel_fmt) {
-            Ok((_, context)) => Ok(Box::from_raw(context)),
+            Ok((_, context)) => Ok(CodecContext::from(context)),
             Err(e) => Err(e),
         }
     }
 }
 
-pub fn create_decoding_context_from_stream_configuration(stream: StreamConfiguration) -> Result<Box<AVCodecContext>, UnsafeError> {
+pub fn create_decoding_context_from_stream_configuration(stream: StreamConfiguration) -> Result<CodecContext, UnsafeError> {
     unsafe {
         match allocate_decoding_codec_from_stream_config(stream) {
-            Ok((_, context)) => Ok(Box::from_raw(context)),
+            Ok((_, context)) => Ok(CodecContext::from(context)),
             Err(e) => Err(e),
         }
     }

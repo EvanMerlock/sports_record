@@ -1,4 +1,4 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
 use config::stream_config::*;
 
 use std::ptr;
@@ -41,7 +41,7 @@ unsafe fn allocate_decoding_codec_from_stream_config(stream_config: StreamConfig
     decoding_context.height = stream_config.height;
     decoding_context.width = stream_config.width;
 
-    decoding_context.framerate = stream_config.frame_rate;
+    decoding_context.framerate = stream_config.frame_rate.into();
 
     // decoding_context.gop_size = stream_config.gop_size;
     // decoding_context.max_b_frames = stream_config.max_b_frames;

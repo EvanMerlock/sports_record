@@ -1,4 +1,4 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
 use unsafe_code::img_processing::magick;
 
 use std::io::Write;
@@ -9,7 +9,7 @@ use std::ptr;
 
 use ffmpeg_sys::*;
 
-unsafe fn allocate_jpeg_codec(height: i32, width: i32, time_base: AVRational) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
+unsafe fn allocate_jpeg_codec(height: i32, width: i32, time_base: Rational) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
 
     let codec_ptr: *mut AVCodec = avcodec_find_encoder(AV_CODEC_ID_JPEG2000);
     let jpeg_context_ptr: *mut AVCodecContext = avcodec_alloc_context3(codec_ptr);
@@ -19,7 +19,7 @@ unsafe fn allocate_jpeg_codec(height: i32, width: i32, time_base: AVRational) ->
     jpeg_context.height = height;
     jpeg_context.width = width;
 
-    jpeg_context.time_base = time_base;
+    jpeg_context.time_base = time_base.into();
 
     jpeg_context.pix_fmt = AV_PIX_FMT_YUV420P;
 
@@ -33,7 +33,7 @@ unsafe fn allocate_jpeg_codec(height: i32, width: i32, time_base: AVRational) ->
 
 }
 
-pub fn create_jpeg_context(height: i32, width: i32, time_base: AVRational) -> Result<CodecContext, UnsafeError> {
+pub fn create_jpeg_context(height: i32, width: i32, time_base: Rational) -> Result<CodecContext, UnsafeError> {
     unsafe {
         match allocate_jpeg_codec(height, width, time_base) {
             Ok((_, context)) => Ok(CodecContext::from(context)),

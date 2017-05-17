@@ -1,4 +1,4 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
 use messenger_plus::stream::DualMessenger;
 use unsafe_code::packet::Packet;
 
@@ -11,7 +11,7 @@ use std::slice::from_raw_parts;
 
 use ffmpeg_sys::*;
 
-unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, gop_size: i32, max_b_frames: i32) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
+unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32, time_base: Rational, gop_size: i32, max_b_frames: i32) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
 
     let codec_ptr: *mut AVCodec = avcodec_find_encoder(codec_type);
     let encoding_context_ptr: *mut AVCodecContext = avcodec_alloc_context3(codec_ptr);
@@ -21,7 +21,7 @@ unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32
     encoding_context.height = height;
     encoding_context.width = width;
 
-    encoding_context.time_base = time_base;
+    encoding_context.time_base = time_base.into();
 
     encoding_context.gop_size = gop_size;
     encoding_context.max_b_frames = max_b_frames;
@@ -40,7 +40,7 @@ unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32
 
 }
 
-pub fn create_encoding_context(codec_type: AVCodecID, height: i32, width: i32, time_base: AVRational, gop_size: i32, max_b_frames: i32) -> Result<CodecContext, UnsafeError> {
+pub fn create_encoding_context(codec_type: AVCodecID, height: i32, width: i32, time_base: Rational, gop_size: i32, max_b_frames: i32) -> Result<CodecContext, UnsafeError> {
     unsafe {
         match allocate_encoding_codec(codec_type, height, width, time_base, gop_size, max_b_frames) {
             Ok((_, context)) => Ok(CodecContext::from(context)),

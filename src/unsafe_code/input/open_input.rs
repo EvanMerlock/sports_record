@@ -1,5 +1,4 @@
-use unsafe_code::input::InputInfo;
-use unsafe_code::{UnsafeError, UnsafeErrorKind};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, Rational};
 
 use ffmpeg_sys::*;
 
@@ -37,24 +36,6 @@ unsafe fn allocate_input_format(format_name: CString) -> *const AVInputFormat {
 pub fn create_input_format<'a>(format_name: CString) -> &'a AVInputFormat {
     unsafe {
         &*allocate_input_format(format_name)
-    }
-}
-
-unsafe fn allocate_input_information(format: &AVStream) -> InputInfo {
-    let time_base = format.time_base;
-
-    let codec = format.codec;
-    let width = (*codec).width;
-    let height = (*codec).height;
-    let frame_rate = (*codec).framerate;
-
-    InputInfo::new(height, width, time_base.num, time_base.den, frame_rate.num, time_base.den)
-
-}
-
-pub fn create_input_information(format: &AVStream) -> InputInfo {
-    unsafe {
-        allocate_input_information(format)
     }
 }
 

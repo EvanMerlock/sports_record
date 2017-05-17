@@ -12,7 +12,7 @@ use std::fs::File;
 
 use ffmpeg_sys::*;
 
-use unsafe_code::{init_av, make_av_rational, CodecStorage, UnsafeError, UnsafeErrorKind, CodecContext};
+use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, CodecContext, Rational, make_av_rational};
 use unsafe_code::vid_processing;
 use unsafe_code::img_processing;
 use unsafe_code::sws;
@@ -42,7 +42,7 @@ pub fn send_video<'a>(stream: Sender<Vec<Packet>>) -> Result<(), UnsafeError> {
         Some(in_str) => {
             //Thread allocation
             let in_str_config = StreamConfiguration::from(in_str);
-            in_str.time_base = make_av_rational(1, 30);
+            in_str.time_base = Rational::new(1, 30).into();
 
             let (packet_tx, packet_rx) = channel();
             let (mut context_storage, mut jpeg_context, mut sws_context) = try!(generate_contexts(in_str_config));
@@ -72,8 +72,8 @@ pub fn send_video<'a>(stream: Sender<Vec<Packet>>) -> Result<(), UnsafeError> {
 fn generate_contexts<'a>(conf: StreamConfiguration) -> Result<(CodecStorage, CodecContext, SWSContext), UnsafeError> {
     //CODEC ALLOCATION
     let decoding_context = try!(vid_processing::create_decoding_context_from_stream_configuration(conf));
-    let encoding_context = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, make_av_rational(1, 30), decoding_context.gop_size, decoding_context.max_b_frames));
-    let jpeg_context = try!(img_processing::create_jpeg_context(480, 640, make_av_rational(1, 30)));
+    let encoding_context = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, Rational::new(1, 30), decoding_context.gop_size, decoding_context.max_b_frames));
+    let jpeg_context = try!(img_processing::create_jpeg_context(480, 640, Rational::new(1, 30)));
     let context_storage: CodecStorage = CodecStorage::new(encoding_context, decoding_context);
 
     // SWS ALLOCATION

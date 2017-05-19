@@ -32,7 +32,7 @@ unsafe fn allocate_decoding_codec(decoder_id: AVCodecID, height: i32, width: i32
 
 unsafe fn allocate_decoding_codec_from_stream_config(stream_config: StreamConfiguration) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
 
-    let codec_ptr: *mut AVCodec = avcodec_find_decoder(stream_config.codec_id);
+    let codec_ptr: *mut AVCodec = avcodec_find_decoder(*stream_config.codec_id);
     let decoding_context_ptr: *mut AVCodecContext = avcodec_alloc_context3(codec_ptr);
 
     let ref mut decoding_context: AVCodecContext = *decoding_context_ptr;
@@ -49,7 +49,7 @@ unsafe fn allocate_decoding_codec_from_stream_config(stream_config: StreamConfig
     decoding_context.gop_size = 0;
     decoding_context.max_b_frames = 0;
 
-    decoding_context.pix_fmt = stream_config.pix_fmt;
+    decoding_context.pix_fmt = *stream_config.pix_fmt;
 
     let ret = avcodec_open2(decoding_context_ptr, codec_ptr, ptr::null_mut());
     if ret < 0 {

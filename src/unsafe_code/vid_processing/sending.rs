@@ -38,33 +38,30 @@ pub fn send_video<'a>(stream: Sender<Vec<Packet>>) -> Result<(), UnsafeError> {
     //Grab the stream from the input context
     let opt = input::find_input_stream(input_context, 0);
 
-    match opt {
-        Some(in_str) => {
-            //Thread allocation
-            let in_str_config = StreamConfiguration::from(in_str);
-            in_str.time_base = Rational::new(1, 30).into();
+    if let Some(in_str) = opt {
+        //Thread allocation
+        let in_str_config = StreamConfiguration::from(in_str);
+        in_str.time_base = Rational::new(1, 30).into();
 
-            let (packet_tx, packet_rx) = channel();
-            let (mut context_storage, mut jpeg_context, mut sws_context) = try!(generate_contexts(in_str_config));
+        let (packet_tx, packet_rx) = channel();
+        let (mut context_storage, mut jpeg_context, mut sws_context) = try!(generate_contexts(in_str_config));
 
-            let mut render_thread_handle = spawn_thread(context_storage, jpeg_context, sws_context, stream, packet_rx);
+        let mut render_thread_handle = spawn_thread(context_storage, jpeg_context, sws_context, stream, packet_rx);
 
-            let start_time = PreciseTime::now();
-            while start_time.to(PreciseTime::now()) < Duration::seconds(5) {
-                let packet = input::read_input(input_context);
-                packet_tx.send(PacketMessage::Packet(packet));
-            }
-
-            println!("sending flush signal");
-            packet_tx.send(PacketMessage::Flush);
-
-            println!("render thread status: {:?}", render_thread_handle.join());
-
-            Ok(())
-        },
-        None => {
-            Err(UnsafeError::new(UnsafeErrorKind::OpenInput(1000)))
+        let start_time = PreciseTime::now();
+        while start_time.to(PreciseTime::now()) < Duration::seconds(5) {
+            let packet = input::read_input(input_context);
+            packet_tx.send(PacketMessage::Packet(packet));
         }
+
+        println!("sending flush signal");
+        packet_tx.send(PacketMessage::Flush);
+
+        println!("render thread status: {:?}", render_thread_handle.join());
+
+        Ok(())
+    } else {
+        Err(UnsafeError::new(UnsafeErrorKind::OpenInput(1000)))
     }
 
 }
@@ -82,19 +79,18 @@ fn generate_contexts<'a>(conf: StreamConfiguration) -> Result<(CodecStorage, Cod
     Ok((context_storage, jpeg_context, sws_context))
 }
 
-fn spawn_thread(mut context_storage: CodecStorage, mut jpeg_context: CodecContext, mut sws_context: SWSContext, stream: Sender<Vec<Packet>>, packet_rx: Receiver<PacketMessage>) -> JoinHandle<()> {
+fn spawn_thread(mut context_storage: CodecStorage, mut jpeg_context: CodecContext, mut sws_context: SWSContext, stream: Sender<Vec<Packet>>, packet_rx: Receiver<PacketMessage>) -> JoinHandle<i64> {
     thread::spawn(move || {
         let mut time = 0;
         for item in packet_rx.iter() {
             match item {
                 PacketMessage::Packet(p) => {
                     let conv_pkt_attempt = transcode_packet(&mut context_storage, &mut jpeg_context, &mut sws_context, p, time);
-                    match conv_pkt_attempt {
-                        Ok(conv_pkt) => {
-                            stream.send(conv_pkt);
-                            time = time + 1;
-                        },
-                        Err(e) => { break; }
+                    if let Ok(conv_pkt) = conv_pkt_attempt {
+                        let _ = stream.send(conv_pkt);
+                        time = time + 1;
+                    } else {
+                        break;
                     }
                 },
                 PacketMessage::Flush => { break; }
@@ -102,14 +98,14 @@ fn spawn_thread(mut context_storage: CodecStorage, mut jpeg_context: CodecContex
         }
         println!("flushing packets");
         let null_pkt_attempt = vid_processing::encode_null_frame(context_storage.encoding_context.borrow_mut());
-        match null_pkt_attempt {
-            Ok(null_pkt) => {
-                println!("sending null pkt of len {}", null_pkt.len());
-                    stream.send(null_pkt);
-                },
-                Err(e) => { println!("err {}", e); }
-            }
+        if let Ok(null_pkt) = null_pkt_attempt {
+            println!("sending null pkt of len {}", null_pkt.len());
+            stream.send(null_pkt);
+        } else {
+            println!("error sending null pkt");
+        }
         println!("finished sending");
+        time
     })
 }
 

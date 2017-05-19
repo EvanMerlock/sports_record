@@ -1,7 +1,8 @@
-use unsafe_code::Rational;
+use unsafe_code::{Rational, PixelFormat, CodecId};
 
 use ffmpeg_sys::*;
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct StreamConfiguration {
     pub bit_rate: i64,
     pub height: i32,
@@ -9,8 +10,8 @@ pub struct StreamConfiguration {
     pub frame_rate: Rational,
     pub gop_size: i32,
     pub max_b_frames: i32,
-    pub pix_fmt: AVPixelFormat,
-    pub codec_id: AVCodecID,
+    pub pix_fmt: PixelFormat,
+    pub codec_id: CodecId,
 }
 
 impl StreamConfiguration {
@@ -24,8 +25,8 @@ impl StreamConfiguration {
                 frame_rate: Rational::from(stream.avg_frame_rate),
                 gop_size: stream_codec_context.gop_size,
                 max_b_frames: stream_codec_context.max_b_frames,
-                pix_fmt: stream_codec_context.pix_fmt,
-                codec_id: stream_codec_context.codec_id
+                pix_fmt: PixelFormat::from(stream_codec_context.pix_fmt),
+                codec_id: CodecId::from(stream_codec_context.codec_id)
             }
         }
     }

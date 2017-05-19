@@ -1,7 +1,7 @@
 use unsafe_code::vid_processing::{send_video, write_to_stream};
 use messenger_plus::stream::DualMessenger;
 
-use std::net::{SocketAddr, TcpStream, TcpListener};
+use std::net::{SocketAddr, TcpStream, TcpListener, Shutdown};
 use client::errors::ClientError;
 use std::io::{Write, Read};
 use std::thread;
@@ -47,6 +47,7 @@ impl Client {
                                     frames_sent = frames_sent + write_to_stream(item, &mut dual_channel).unwrap_or(0);
                                 }
                                 println!("total frames sent: {}", frames_sent);
+                                break;
                             }
                         },
                         Err(e) => {
@@ -54,8 +55,10 @@ impl Client {
                         }
                     }
                 },
-            }
+            }            
         }
+
+        dual_channel.release().shutdown(Shutdown::Both);
 
         Ok(())
     }

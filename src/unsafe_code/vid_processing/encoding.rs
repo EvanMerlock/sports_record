@@ -10,6 +10,7 @@ use std::ffi::CString;
 use std::slice::from_raw_parts;
 
 use ffmpeg_sys::*;
+use libc;
 
 unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32, time_base: Rational, gop_size: i32, max_b_frames: i32) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
 
@@ -28,7 +29,8 @@ unsafe fn allocate_encoding_codec(codec_type: AVCodecID, height: i32, width: i32
     encoding_context.pix_fmt = AV_PIX_FMT_YUV420P;
 
     if codec_type == AV_CODEC_ID_H264 {
-        av_opt_set(encoding_context.priv_data, CString::new("preset").unwrap().as_ptr(), CString::new("slow").unwrap().as_ptr(), 0);
+        av_opt_set((encoding_context as *mut AVCodecContext) as *mut libc::c_void, CString::new("preset").unwrap().as_ptr(), CString::new("ultrafast").unwrap().as_ptr(), 0);
+        av_opt_set((encoding_context as *mut AVCodecContext) as *mut libc::c_void, CString::new("crf").unwrap().as_ptr(), CString::new("28").unwrap().as_ptr(), 0);
     }
 
     let ret = avcodec_open2(encoding_context_ptr, codec_ptr, ptr::null_mut());

@@ -27,15 +27,14 @@ fn run_server() -> Result<(), ServerError> {
 
     for line in line_lock.lines() {
         let unwrapped_line = try!(line);
-        println!("Recv: {}", unwrapped_line);
         if unwrapped_line == "START" {
-            println!("RUNNING START Routine");
+            println!("Starting recording");
             let _ = messenger.send(RecordingInstructions::StartRecording(1));
         } else if unwrapped_line == "STOP" {
-            println!("RUNNING STOP Routine");
+            println!("Stopping recording");
             let _ = messenger.send(RecordingInstructions::StopRecording);
         } else if unwrapped_line == "CLEAN" {
-            println!("RUNNING CLEAN Routine");
+            println!("Stopping server");
             let _ = messenger.send(RecordingInstructions::Cleanup);
         } else if unwrapped_line.starts_with("REMOVE") {
             let whitespace_iter = unwrapped_line.split_whitespace();
@@ -47,7 +46,7 @@ fn run_server() -> Result<(), ServerError> {
             });
 
             for ip in whitespace_ip_iter {
-                println!("Removing: {:?}", ip);
+                println!("Removing {:?}", ip);
                 let _ = ip_messenger.send(ClientIPInformation::Remove(ip));
             }
         }

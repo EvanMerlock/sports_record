@@ -1,3 +1,5 @@
+use uuid::Uuid;
+
 use std::net::{TcpStream, SocketAddr, Shutdown};
 use std::thread;
 use std::thread::JoinHandle;
@@ -6,8 +8,22 @@ use std::sync::mpsc::{Sender, Receiver, channel};
 use std::io::{Read, Write};
 use std::fs::File;
 
-use server::ServerError;
+use std::slice::from_raw_parts;
+use std::ffi::CString;
+
+use server::{ServerError, ServerErrorKind};
 use messenger_plus::stream::{DualMessenger};
+use config::stream_config::StreamConfiguration;
+use unsafe_code::vid_processing;
+use unsafe_code::output::{FormatContext, open_video_file, write_video_frame, write_video_header, write_video_trailer, write_null_video_frame};
+use unsafe_code::{Rational};
+use unsafe_code::packet::{Packet, DataPacket};
+use unsafe_code::img_processing;
+use config::codec_parameters::put_raw_codecpars_into_stream;
+use serde_json;
+use bincode;
+
+use ffmpeg_sys::*;
 
 pub struct ClientStream {
     client_handler_channel: Sender<ClientIPInformation>,
@@ -114,7 +130,8 @@ fn handle_client_changes(thread_list: &mut Vec<ClientThreadInformation>, ip_chan
                 let (send, recv) = channel();
                 let socket_addr = try!(i.peer_addr());
                 let temp_thread_handle = thread::spawn(move || {
-                    let _ = individual_client_handler(i, recv);
+                    let val = individual_client_handler(i, recv);
+                    println!("{:?}", val);
                 });
                 thread_list.push(ClientThreadInformation::new(socket_addr, temp_thread_handle, send));
             }, 
@@ -146,11 +163,31 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
             let curr_instruction = recv.recv().unwrap();
             match curr_instruction {
                 RecordingInstructions::StartRecording(i) => {
+                    println!("writing to channel");
                     let _ = dual_channel.write(b"START");
-                    let mut curr_file = try!(File::create("video.mp4"));
 
                     let mut completed_stream = false;
                     let mut frames_read = 0;
+
+                    println!("reading next message");
+                    let results = dual_channel.read_next_message();
+                    let stream_config = results.map(|x| {
+                        serde_json::from_slice::<StreamConfiguration>(x.as_ref())
+                    }).expect("failure to collect serde value");
+                    println!("created serde value");
+                    let unwrapped_stream_config = stream_config.expect("failed to convert from serde");
+                    println!("unwrapped serde value");
+                    let mut format_context: FormatContext = FormatContext::new(CString::new("video.mp4").unwrap());
+                    println!("generated format context");
+                    let mut encoding_context = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, Rational::new(1, 30), 12, 0));
+                    let pkt_stream = format_context.create_stream(encoding_context);
+                    println!("created stream");
+                    try!(open_video_file("video.mp4", &mut format_context));
+                    println!("opened vid file");
+                    try!(write_video_header(&mut format_context));
+                    println!("wrote video header");
+                    // let mut decoding_context = try!(vid_processing::create_decoding_context_from_stream_configuration(unwrapped_stream_config));
+                    // let mut jpeg_context = try!(img_processing::create_jpeg_context(480, 640, Rational::new(1, 30)));
 
                     while !completed_stream {
                         let results = dual_channel.read_next_message();
@@ -159,10 +196,25 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
                             None => {
                                 println!("Read {} messages from stream, now reached EOS.", frames_read);
                                 completed_stream = true;
+                                try!(write_null_video_frame(&mut format_context));
+                                try!(write_video_trailer(&mut format_context));
                             }
                             Some(v) => {
                                 frames_read = frames_read + 1;
-                                let _ = curr_file.write(v.as_slice());
+
+                                let mut data_packet: DataPacket = try!(bincode::deserialize(v.as_slice()));
+                                let mut packet = Packet::from(data_packet);
+
+                                println!("Recieved Packet from Client");
+
+                                let raw_frame_chance = write_video_frame(&mut format_context, &pkt_stream, packet);
+
+                                match raw_frame_chance {
+                                    Err(e) => println!("{:?}", e),
+                                    _ => println!("no problem"),
+                                }
+                                //let file = try!(File::create(String::from("output/picture_") + Uuid::new_v4().to_string().as_ref() + String::from(".jpeg").as_ref()));
+                                //try!(img_processing::write_frame_to_jpeg(&mut jpeg_context, raw_frame, file));
                             }
                         }
                     }

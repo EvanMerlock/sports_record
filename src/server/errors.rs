@@ -5,6 +5,8 @@ use std::io;
 use std::str;
 use std::net::AddrParseError;
 use rusqlite;
+use unsafe_code::{UnsafeError, UnsafeErrorKind};
+use bincode;
 
 #[derive(Debug)]
 pub enum ServerErrorKind {
@@ -13,6 +15,8 @@ pub enum ServerErrorKind {
     IronError,
     UTF8Error(str::Utf8Error),
     AddrParseErr(AddrParseError),
+    UnsafeError(UnsafeError),
+    BincodeError(Box<bincode::ErrorKind>),
 }
 
 impl fmt::Display for ServerErrorKind {
@@ -23,6 +27,8 @@ impl fmt::Display for ServerErrorKind {
             &ServerErrorKind::IronError => write!(fmter, "An Iron error occured"),
             &ServerErrorKind::UTF8Error(ref err) => err.fmt(fmter),
             &ServerErrorKind::AddrParseErr(ref err) => err.fmt(fmter),
+            &ServerErrorKind::UnsafeError(ref err) => err.fmt(fmter),
+            &ServerErrorKind::BincodeError(ref err) => err.fmt(fmter),
         }
     }
 }
@@ -75,5 +81,17 @@ impl From<str::Utf8Error> for ServerError {
 impl From<AddrParseError> for ServerError {
     fn from(err: AddrParseError) -> ServerError {
         ServerError::new(ServerErrorKind::AddrParseErr(err))
+    }
+}
+
+impl From<UnsafeError> for ServerError {
+    fn from(err: UnsafeError) -> ServerError {
+        ServerError::new(ServerErrorKind::UnsafeError(err))
+    }
+}
+
+impl From<Box<bincode::ErrorKind>> for ServerError {
+    fn from(err: Box<bincode::ErrorKind>) -> ServerError {
+        ServerError::new(ServerErrorKind::BincodeError(err))
     }
 }

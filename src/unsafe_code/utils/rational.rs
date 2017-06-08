@@ -3,7 +3,7 @@ use std::convert::{From, Into};
 
 use ffmpeg_sys::*;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct Rational(i32, i32);
 
 unsafe impl Send for Rational {}

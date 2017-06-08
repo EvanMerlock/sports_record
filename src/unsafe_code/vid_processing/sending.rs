@@ -18,8 +18,9 @@ use unsafe_code::img_processing;
 use unsafe_code::sws;
 use unsafe_code::sws::SWSContext;
 use unsafe_code::input;
-use unsafe_code::packet::Packet;
+use unsafe_code::packet::{Packet, DataPacket};
 use config::stream_config::StreamConfiguration;
+use networking::NetworkPacket;
 
 use std::slice::from_raw_parts;
 
@@ -28,7 +29,7 @@ enum PacketMessage {
     Flush,
 }
 
-pub fn send_video<'a>(stream: Sender<Vec<Packet>>) -> Result<(), UnsafeError> {
+pub fn send_video<'a>(stream: Sender<NetworkPacket>) -> Result<(), UnsafeError> {
     init_av();
 
     //INPUT ALLOCATION
@@ -39,25 +40,26 @@ pub fn send_video<'a>(stream: Sender<Vec<Packet>>) -> Result<(), UnsafeError> {
     let opt = input::find_input_stream(input_context, 0);
 
     if let Some(in_str) = opt {
-        //Thread allocation
-        let in_str_config = StreamConfiguration::from(in_str);
-        in_str.time_base = Rational::new(1, 30).into();
-
         let (packet_tx, packet_rx) = channel();
-        let (mut context_storage, mut jpeg_context, mut sws_context) = try!(generate_contexts(in_str_config));
+        let (mut context_storage, mut sws_context) = try!(generate_contexts(in_str));
 
-        let mut render_thread_handle = spawn_thread(context_storage, jpeg_context, sws_context, stream, packet_rx);
+        let output_stream_configuration = StreamConfiguration::from(&context_storage.encoding_context);
+
+        stream.send(NetworkPacket::JSONPayload(output_stream_configuration));
+        let mut render_thread_handle = spawn_thread(context_storage, sws_context, stream, packet_rx);
 
         let start_time = PreciseTime::now();
-        while start_time.to(PreciseTime::now()) < Duration::seconds(5) {
+        let mut packets_read = 0;
+        while start_time.to(PreciseTime::now()) <= Duration::seconds(5) {
             let packet = input::read_input(input_context);
             packet_tx.send(PacketMessage::Packet(packet));
+            packets_read = packets_read + 1;
         }
-
-        println!("sending flush signal");
+        
+        println!("Read {} packets, now sending flush signal", packets_read);
         packet_tx.send(PacketMessage::Flush);
 
-        println!("render thread status: {:?}", render_thread_handle.join());
+        render_thread_handle.join();
 
         Ok(())
     } else {
@@ -66,26 +68,25 @@ pub fn send_video<'a>(stream: Sender<Vec<Packet>>) -> Result<(), UnsafeError> {
 
 }
 
-fn generate_contexts<'a>(conf: StreamConfiguration) -> Result<(CodecStorage, CodecContext, SWSContext), UnsafeError> {
+fn generate_contexts<'a>(stream: &mut AVStream) -> Result<(CodecStorage, SWSContext), UnsafeError> {
     //CODEC ALLOCATION
-    let decoding_context = try!(vid_processing::create_decoding_context_from_stream_configuration(conf));
+    let decoding_context = try!(vid_processing::create_decoding_context_from_av_stream(stream, Rational::new(1, 30)));
     let encoding_context = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, Rational::new(1, 30), decoding_context.gop_size, decoding_context.max_b_frames));
-    let jpeg_context = try!(img_processing::create_jpeg_context(480, 640, Rational::new(1, 30)));
     let context_storage: CodecStorage = CodecStorage::new(encoding_context, decoding_context);
 
     // SWS ALLOCATION
     let sws_context = try!(sws::create_sws_context(480, 640, AV_PIX_FMT_YUYV422, AV_PIX_FMT_YUV420P));
 
-    Ok((context_storage, jpeg_context, sws_context))
+    Ok((context_storage, sws_context))
 }
 
-fn spawn_thread(mut context_storage: CodecStorage, mut jpeg_context: CodecContext, mut sws_context: SWSContext, stream: Sender<Vec<Packet>>, packet_rx: Receiver<PacketMessage>) -> JoinHandle<i64> {
+fn spawn_thread(mut context_storage: CodecStorage, mut sws_context: SWSContext, stream: Sender<NetworkPacket>, packet_rx: Receiver<PacketMessage>) -> JoinHandle<i64> {
     thread::spawn(move || {
         let mut time = 0;
         for item in packet_rx.iter() {
             match item {
                 PacketMessage::Packet(p) => {
-                    let conv_pkt_attempt = transcode_packet(&mut context_storage, &mut jpeg_context, &mut sws_context, p, time);
+                    let conv_pkt_attempt = transcode_packet(&mut context_storage, &mut sws_context, p, time);
                     if let Ok(conv_pkt) = conv_pkt_attempt {
                         let _ = stream.send(conv_pkt);
                         time = time + 1;
@@ -100,7 +101,7 @@ fn spawn_thread(mut context_storage: CodecStorage, mut jpeg_context: CodecContex
         let null_pkt_attempt = vid_processing::encode_null_frame(context_storage.encoding_context.borrow_mut());
         if let Ok(null_pkt) = null_pkt_attempt {
             println!("sending null pkt of len {}", null_pkt.len());
-            stream.send(null_pkt);
+            stream.send(NetworkPacket::PacketStream(null_pkt.into_iter().map(|x: Packet| DataPacket::from(x)).collect()));
         } else {
             println!("error sending null pkt");
         }
@@ -109,26 +110,11 @@ fn spawn_thread(mut context_storage: CodecStorage, mut jpeg_context: CodecContex
     })
 }
 
-fn transcode_packet<'a>(contexts: &mut CodecStorage, jpeg_context: &mut CodecContext, sws_context: &mut SWSContext, packet: Packet, frame_loc: i64) -> Result<Vec<Packet>, UnsafeError> {
+fn transcode_packet<'a>(contexts: &mut CodecStorage, sws_context: &mut SWSContext, packet: Packet, frame_loc: i64) -> Result<NetworkPacket, UnsafeError> {
     let raw_frame: &mut AVFrame = try!(vid_processing::decode_packet(contexts.decoding_context.borrow_mut(), &packet));
 
     let scaled_frame: &mut AVFrame = try!(sws::change_pixel_format(raw_frame, sws_context.borrow_mut(), 32, frame_loc));
 
-    let file = try!(File::create(String::from("picture_") + Uuid::new_v4().to_string().as_ref() + String::from(".jpeg").as_ref()));
-    try!(img_processing::write_frame_to_jpeg(jpeg_context, scaled_frame, file));
-
     let pkts = try!(vid_processing::encode_frame(contexts.encoding_context.borrow_mut(), scaled_frame));
-    Ok(pkts)
-}
-
-pub fn write_to_stream(mut frames: Vec<Packet>, writer: &mut Write) -> Result<i32, UnsafeError> {
-    let mut frames_sent = 0;
-    for mut frame in frames.drain(0..) {
-        unsafe {
-            try!(writer.write(from_raw_parts(frame.data, frame.size as usize)));
-            av_packet_unref(&mut *frame as *mut AVPacket);
-            frames_sent = frames_sent + 1;
-        }
-    }
-    Ok(frames_sent)
+    Ok(NetworkPacket::PacketStream(pkts.into_iter().map(|x: Packet| DataPacket::from(x)).collect()))
 }

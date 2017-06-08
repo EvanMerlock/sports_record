@@ -13,6 +13,7 @@ use std::sync::mpsc::{Sender};
 use server::client_handling::*;
 use server::web;
 use server::{ ServerError, ServerErrorKind };
+use unsafe_code::init_av;
 
 use rusqlite::Connection;
 
@@ -43,6 +44,7 @@ impl RecordingServer {
 
         let iron_serv_res = Iron::new(router).http(ip_tuple.1);
 
+        init_av();
         let client_stream = try!(ClientStream::new());
 
         match iron_serv_res {
@@ -72,7 +74,6 @@ impl RecordingServer {
         let ip_sender = self.ip_sender.clone();
         thread::spawn(move || {
             for stream in listener.incoming() {
-                // let ip_sender = ip_sender.clone();
                 match stream {
                     Ok(stream) => {
                             println!("Received client");

@@ -3,11 +3,11 @@ use std::fmt;
 use std::convert::{From};
 use std::ops::{Deref};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
-use serde::de::{Visitor, EnumAccess};
+use serde::de::{Visitor, EnumAccess, Error};
 
 use ffmpeg_sys::*;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct PixelFormat(AVPixelFormat);
 
 unsafe impl Send for PixelFormat {}
@@ -24,6 +24,19 @@ impl PixelFormat {
 	        AV_PIX_FMT_YUV410P => "AV_PIX_FMT_YUV410P",
 	        AV_PIX_FMT_YUV411P => "AV_PIX_FMT_YUV411P",
             _                  => "AV_PIX_FMT_NONE",
+        }
+    }
+
+    fn from_str(item: &str) -> PixelFormat {
+        match item {
+            "AV_PIX_FMT_NONE"    => PixelFormat::from(AV_PIX_FMT_NONE),
+            "AV_PIX_FMT_YUV420P" => PixelFormat::from(AV_PIX_FMT_YUV420P),
+            "AV_PIX_FMT_YUYV422" => PixelFormat::from(AV_PIX_FMT_YUYV422),
+            "AV_PIX_FMT_YUV422P" => PixelFormat::from(AV_PIX_FMT_YUV422P),
+            "AV_PIX_FMT_YUV444P" => PixelFormat::from(AV_PIX_FMT_YUV444P),
+            "AV_PIX_FMT_YUV410P" => PixelFormat::from(AV_PIX_FMT_YUV410P),
+            "AV_PIX_FMT_YUV411P" => PixelFormat::from(AV_PIX_FMT_YUV411P),
+            _                    => PixelFormat::from(AV_PIX_FMT_NONE),
         }
     }
 }
@@ -59,7 +72,11 @@ impl<'de> Visitor<'de> for PixelFormatVisitor {
 
     fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error> where A: EnumAccess<'de> {
         data.variant().map(|x| x.0)
-    } 
+    }
+
+    fn visit_str<A>(self, item: &str) -> Result<Self::Value, A> where A: Error {
+        Ok(PixelFormat::from_str(item))
+    }
 }
 
 impl<'de> Deserialize<'de> for PixelFormat {

@@ -3,6 +3,7 @@ pub mod vid_processing;
 pub mod sws;
 pub mod input;
 pub mod packet;
+pub mod output;
 
 mod codec;
 mod utils;

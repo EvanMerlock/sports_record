@@ -1,4 +1,4 @@
-use unsafe_code::vid_processing::{send_video, write_to_stream};
+use unsafe_code::vid_processing::{send_video};
 use messenger_plus::stream::DualMessenger;
 
 use std::net::{SocketAddr, TcpStream, TcpListener, Shutdown};
@@ -6,6 +6,8 @@ use client::errors::ClientError;
 use std::io::{Write, Read};
 use std::thread;
 use std::sync::mpsc::{channel, Sender, Receiver};
+
+use networking::NetworkPacket;
 
 #[derive(Debug)]
 pub struct Client {
@@ -29,7 +31,7 @@ impl Client {
             let results = dual_channel.read_next_message();
             match results {
                 None => {
-                    println!("server eos");
+                    println!("Server EOS");
                     stream_open = false;
                 },
                 Some(v) => {
@@ -39,14 +41,13 @@ impl Client {
                         Ok(s) => {
                             if s == "START" {
                                 let (tx, rx) = channel();
-                                thread::spawn(|| {
-                                    println!("Sent video: {:?}", send_video(tx));
+                                let handle = thread::spawn(|| {
+                                    send_video(tx)
                                 });
-                                let mut frames_sent = 0;
                                 for item in rx {
-                                    frames_sent = frames_sent + write_to_stream(item, &mut dual_channel).unwrap_or(0);
+                                    item.write_to(&mut dual_channel);
                                 }
-                                println!("total frames sent: {}", frames_sent);
+                                handle.join();
                                 break;
                             }
                         },

@@ -1,8 +1,8 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
-use unsafe_code::packet::Packet;
-
 use std::ptr;
 use std::ffi::CString;
+
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
+use unsafe_code::packet::Packet;
 
 use ffmpeg_sys::*;
 use libc;

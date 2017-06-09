@@ -1,10 +1,10 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind};
-
+use std::sync::{Once, ONCE_INIT};
 use std::convert::From;
+
+use unsafe_code::{UnsafeError, UnsafeErrorKind};
 
 use magick_rust::{MagickWand, magick_wand_genesis};
 use magick_rust::bindings::ColorspaceType;
-use std::sync::{Once, ONCE_INIT};
 
 static INIT_WAND: Once = ONCE_INIT;
 

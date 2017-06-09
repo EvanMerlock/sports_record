@@ -1,7 +1,3 @@
-use iron::prelude::*;
-use iron::Listening;
-use router::Router;
-
 use std::net::{TcpListener, SocketAddr};
 use std::thread;
 use std::result::Result;
@@ -13,9 +9,13 @@ use std::sync::mpsc::{Sender};
 use server::client_handling::*;
 use server::web;
 use server::{ ServerError, ServerErrorKind };
+
 use unsafe_code::init_av;
 
 use rusqlite::Connection;
+use iron::prelude::*;
+use iron::Listening;
+use router::Router;
 
 pub struct RecordingServer {
     listener: Arc<TcpListener>,

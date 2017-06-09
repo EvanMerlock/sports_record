@@ -1,8 +1,9 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext};
-use config::stream_config::*;
 
 use std::ptr;
 use std::ffi::CString;
+
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext};
+use config::stream_config::*;
 
 use ffmpeg_sys::*;
 use libc;

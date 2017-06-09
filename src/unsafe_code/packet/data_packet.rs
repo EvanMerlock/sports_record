@@ -1,5 +1,7 @@
-use unsafe_code::packet::Packet;
+
 use std::slice::from_raw_parts;
+
+use unsafe_code::packet::Packet;
 
 #[derive(Serialize, Deserialize)]
 pub struct DataPacket {

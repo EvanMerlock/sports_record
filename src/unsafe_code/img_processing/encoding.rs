@@ -1,11 +1,11 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
-use unsafe_code::img_processing::magick;
-
 use std::io::Write;
 use std::fs::File;
 
 use std::slice::from_raw_parts;
 use std::ptr;
+
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
+use unsafe_code::img_processing::magick;
 
 use ffmpeg_sys::*;
 

@@ -1,5 +1,6 @@
-use unsafe_code::{Rational, PixelFormat, CodecId, CodecContext};
 use std::convert::From;
+
+use unsafe_code::{Rational, PixelFormat, CodecId, CodecContext};
 
 use ffmpeg_sys::*;
 

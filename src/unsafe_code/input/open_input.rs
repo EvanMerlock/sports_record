@@ -1,10 +1,11 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind};
-
-use ffmpeg_sys::*;
 
 use std::ptr;
 use std::ffi::CString;
 use std::slice::from_raw_parts;
+
+use unsafe_code::{UnsafeError, UnsafeErrorKind};
+
+use ffmpeg_sys::*;
 
 unsafe fn allocate_format_context(input_format: &AVInputFormat, input_location: CString) -> Result<*mut AVFormatContext, UnsafeError> {
     let mut input_context_ptr = ptr::null_mut();

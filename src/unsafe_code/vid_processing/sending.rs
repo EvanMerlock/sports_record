@@ -1,13 +1,9 @@
-use time::{Duration, PreciseTime};
-
 use std::borrow::BorrowMut;
 use std::thread;
 use std::thread::JoinHandle;
 use std::sync::mpsc::{channel, Sender, Receiver};
 
 use std::ffi::CString;
-
-use ffmpeg_sys::*;
 
 use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational};
 use unsafe_code::vid_processing;
@@ -17,6 +13,10 @@ use unsafe_code::input;
 use unsafe_code::packet::{Packet, DataPacket};
 use config::stream_config::StreamConfiguration;
 use networking::NetworkPacket;
+
+use time::{Duration, PreciseTime};
+
+use ffmpeg_sys::*;
 
 enum PacketMessage {
     Packet(Packet),

@@ -8,14 +8,16 @@ use std::io::Write;
 use std::ffi::CString;
 
 use server::ServerError;
-use messenger_plus::stream::{DualMessenger};
 use config::stream_config::StreamConfiguration;
+
 use unsafe_code::vid_processing;
 use unsafe_code::output::{FormatContext, open_video_file, write_video_frame, write_video_header, write_video_trailer, write_null_video_frame};
 use unsafe_code::{Rational};
 use unsafe_code::packet::{Packet, DataPacket};
+
 use serde_json;
 use bincode;
+use messenger_plus::stream::{DualMessenger};
 
 use ffmpeg_sys::*;
 

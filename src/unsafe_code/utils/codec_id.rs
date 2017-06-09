@@ -2,6 +2,7 @@ use std::marker::{Send, Sync};
 use std::fmt;
 use std::convert::{From};
 use std::ops::{Deref};
+
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::{Visitor, EnumAccess, Error};
 

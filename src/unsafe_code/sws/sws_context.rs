@@ -2,7 +2,6 @@ use std::marker::{Send};
 use std::convert::{From};
 use std::ops::{Drop, Deref, DerefMut};
 
-
 use ffmpeg_sys::*;
 
 pub struct SWSContext(*mut SwsContext);

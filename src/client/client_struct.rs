@@ -1,10 +1,11 @@
-use unsafe_code::vid_processing::{send_video};
-use messenger_plus::stream::DualMessenger;
-
 use std::net::{SocketAddr, TcpStream, Shutdown};
-use client::errors::ClientError;
 use std::thread;
 use std::sync::mpsc::channel;
+
+use messenger_plus::stream::DualMessenger;
+use client::errors::ClientError;
+
+use unsafe_code::vid_processing::{send_video};
 
 #[derive(Debug)]
 pub struct Client {

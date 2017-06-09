@@ -7,6 +7,7 @@ use std::io::Write;
 use std::slice::{from_raw_parts_mut, from_raw_parts};
 
 use unsafe_code::Rational;
+use unsafe_code::packet::DataPacket;
 
 use ffmpeg_sys::*;
 
@@ -148,23 +149,4 @@ impl DerefMut for Packet {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     } 
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct DataPacket {
-    pub packet: Vec<u8>,
-    pub pts: i64,
-    pub dts: i64,
-}
-
-impl From<Packet> for DataPacket {
-    fn from(pkt: Packet) -> DataPacket {
-        unsafe {
-            DataPacket {
-                packet: from_raw_parts(pkt.data, pkt.size as usize).to_vec(),
-                pts: pkt.pts,
-                dts: pkt.dts,
-            }
-        }
-    }
 }

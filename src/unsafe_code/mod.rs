@@ -4,6 +4,7 @@ pub mod sws;
 pub mod input;
 pub mod packet;
 pub mod output;
+pub mod format;
 
 mod codec;
 mod utils;

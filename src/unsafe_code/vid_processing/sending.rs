@@ -7,11 +7,13 @@ use std::ffi::CString;
 
 use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational};
 use unsafe_code::vid_processing;
+use unsafe_code::format::{FormatContext, InputContext};
 use unsafe_code::sws;
 use unsafe_code::sws::SWSContext;
 use unsafe_code::input;
 use unsafe_code::packet::{Packet, DataPacket};
 use config::stream_config::StreamConfiguration;
+use unsafe_code::output::Stream;
 use networking::NetworkPacket;
 
 use time::{Duration, PreciseTime};
@@ -28,14 +30,14 @@ pub fn send_video<'a>(stream: Sender<NetworkPacket>) -> Result<(), UnsafeError> 
 
     //INPUT ALLOCATION
     let input_format: &AVInputFormat = input::create_input_format(CString::new("v4l2").unwrap());
-    let input_context: &mut AVFormatContext = try!(input::create_format_context(input_format, CString::new("/dev/video0").unwrap()));
+    let mut input_context: InputContext = FormatContext::new_input(input_format, CString::new("/dev/video0").unwrap());
 
     //Grab the stream from the input context
-    let opt = input::find_input_stream(input_context, 0);
+    let opt = input::find_input_stream(&input_context, 0);
 
-    if let Some(in_str) = opt {
+    if let Some(mut in_str) = opt {
         let (packet_tx, packet_rx) = channel();
-        let (context_storage, sws_context) = try!(generate_contexts(in_str));
+        let (context_storage, sws_context) = try!(generate_contexts(&mut in_str));
 
         let output_stream_configuration = StreamConfiguration::from(&context_storage.encoding_context);
 
@@ -45,7 +47,7 @@ pub fn send_video<'a>(stream: Sender<NetworkPacket>) -> Result<(), UnsafeError> 
         let start_time = PreciseTime::now();
         let mut packets_read = 0;
         while start_time.to(PreciseTime::now()) <= Duration::seconds(5) {
-            let packet = input::read_input(input_context);
+            let packet = input_context.read_input();
             let _ = packet_tx.send(PacketMessage::Packet(packet));
             packets_read = packets_read + 1;
         }
@@ -62,7 +64,7 @@ pub fn send_video<'a>(stream: Sender<NetworkPacket>) -> Result<(), UnsafeError> 
 
 }
 
-fn generate_contexts<'a>(stream: &mut AVStream) -> Result<(CodecStorage, SWSContext), UnsafeError> {
+fn generate_contexts<'a>(stream: &mut Stream) -> Result<(CodecStorage, SWSContext), UnsafeError> {
     //CODEC ALLOCATION
     let decoding_context = try!(vid_processing::create_decoding_context_from_av_stream(stream));
     let encoding_context = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, Rational::new(1, 30), decoding_context.gop_size, decoding_context.max_b_frames));

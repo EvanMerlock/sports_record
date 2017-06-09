@@ -11,9 +11,11 @@ use server::ServerError;
 use config::stream_config::StreamConfiguration;
 
 use unsafe_code::vid_processing;
-use unsafe_code::output::{FormatContext, open_video_file, write_video_frame, write_video_header, write_video_trailer, write_null_video_frame};
+use unsafe_code::output::{open_video_file, write_video_frame, write_video_header, write_video_trailer, write_null_video_frame};
+use unsafe_code::format::{FormatContext, InputContext};
 use unsafe_code::{Rational};
 use unsafe_code::packet::{Packet, DataPacket};
+use unsafe_code::format::OutputContext;
 
 use serde_json;
 use bincode;
@@ -173,7 +175,7 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
                     println!("created serde value");
                     let unwrapped_stream_config = stream_config.expect("failed to convert from serde");
                     println!("unwrapped serde value");
-                    let mut format_context: FormatContext = FormatContext::new(CString::new("video.mp4").unwrap());
+                    let mut format_context: OutputContext = FormatContext::new_output(CString::new("video.mp4").unwrap());
                     println!("generated format context");
                     let encoding_context = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, Rational::new(1, 30), 12, 0));
                     let pkt_stream = format_context.create_stream(encoding_context);

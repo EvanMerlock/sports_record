@@ -6,6 +6,7 @@ use std::io::Write;
 
 use std::slice::{from_raw_parts_mut, from_raw_parts};
 
+use unsafe_code::Rational;
 
 use ffmpeg_sys::*;
 
@@ -29,6 +30,12 @@ impl Packet {
     pub fn as_slice(&self) -> &[u8] {
         unsafe {
             from_raw_parts(self.0.data, self.0.size as usize)
+        }
+    }
+
+    pub fn rescale_to(&mut self, from_ts: Rational, new_ts: Rational) {
+        unsafe {
+            av_packet_rescale_ts(&mut **self, from_ts.into(), new_ts.into());
         }
     }
 }

@@ -180,7 +180,8 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
                     let mut format_context: FormatContext = FormatContext::new(CString::new("video.mp4").unwrap());
                     println!("generated format context");
                     let mut encoding_context = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, Rational::new(1, 30), 12, 0));
-                    let pkt_stream = format_context.create_stream(encoding_context);
+                    let mut pkt_stream = format_context.create_stream(encoding_context);
+                    
                     println!("created stream");
                     try!(open_video_file("video.mp4", &mut format_context));
                     println!("opened vid file");
@@ -198,21 +199,18 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
                                 completed_stream = true;
                                 try!(write_null_video_frame(&mut format_context));
                                 try!(write_video_trailer(&mut format_context));
+                                println!("Wrote video trailer and null video frame");
                             }
                             Some(v) => {
                                 frames_read = frames_read + 1;
 
                                 let mut data_packet: DataPacket = try!(bincode::deserialize(v.as_slice()));
                                 let mut packet = Packet::from(data_packet);
+                                packet.dts = packet.pts;
 
-                                println!("Recieved Packet from Client");
+                                println!("Recieved packet from client");
 
-                                let raw_frame_chance = write_video_frame(&mut format_context, &pkt_stream, packet);
-
-                                match raw_frame_chance {
-                                    Err(e) => println!("{:?}", e),
-                                    _ => println!("no problem"),
-                                }
+                                let raw_frame_chance = try!(write_video_frame(&mut format_context, &pkt_stream, packet));
                                 //let file = try!(File::create(String::from("output/picture_") + Uuid::new_v4().to_string().as_ref() + String::from(".jpeg").as_ref()));
                                 //try!(img_processing::write_frame_to_jpeg(&mut jpeg_context, raw_frame, file));
                             }

@@ -22,7 +22,7 @@ pub fn convert_colorspace(pic: Vec<u8>) -> Result<Vec<u8>, UnsafeError> {
     let mut wand = MagickWand::new();
     match wand.read_image_blob(&pic) {
         Ok(()) => {
-            wand.set_colorspace(ColorspaceType::RGBColorspace);
+            let _ = wand.set_colorspace(ColorspaceType::RGBColorspace);
             match wand.write_image_blob("jpeg") {
                 Ok(v) => Ok(v),
                 Err(e) => Err(UnsafeError::from(e)),

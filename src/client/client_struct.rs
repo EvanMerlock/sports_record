@@ -1,13 +1,10 @@
 use unsafe_code::vid_processing::{send_video};
 use messenger_plus::stream::DualMessenger;
 
-use std::net::{SocketAddr, TcpStream, TcpListener, Shutdown};
+use std::net::{SocketAddr, TcpStream, Shutdown};
 use client::errors::ClientError;
-use std::io::{Write, Read};
 use std::thread;
-use std::sync::mpsc::{channel, Sender, Receiver};
-
-use networking::NetworkPacket;
+use std::sync::mpsc::channel;
 
 #[derive(Debug)]
 pub struct Client {
@@ -17,7 +14,7 @@ pub struct Client {
 
 impl Client {
     pub fn new(sock: SocketAddr) -> Result<Client, ClientError> {
-        let mut stream = try!(TcpStream::connect(sock));
+        let stream = try!(TcpStream::connect(sock));
 
         Ok(Client { server_ip: sock, stream: stream })
     }
@@ -45,9 +42,9 @@ impl Client {
                                     send_video(tx)
                                 });
                                 for item in rx {
-                                    item.write_to(&mut dual_channel);
+                                    let _ = item.write_to(&mut dual_channel);
                                 }
-                                handle.join();
+                                let _ = handle.join();
                                 break;
                             }
                         },
@@ -59,7 +56,7 @@ impl Client {
             }            
         }
 
-        dual_channel.release().shutdown(Shutdown::Both);
+        let _ = dual_channel.release().shutdown(Shutdown::Both);
 
         Ok(())
     }

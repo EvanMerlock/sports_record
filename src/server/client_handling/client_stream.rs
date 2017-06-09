@@ -1,25 +1,19 @@
-use uuid::Uuid;
-
 use std::net::{TcpStream, SocketAddr, Shutdown};
 use std::thread;
 use std::thread::JoinHandle;
 use std::result::Result;
 use std::sync::mpsc::{Sender, Receiver, channel};
-use std::io::{Read, Write};
-use std::fs::File;
+use std::io::Write;
 
-use std::slice::from_raw_parts;
 use std::ffi::CString;
 
-use server::{ServerError, ServerErrorKind};
+use server::ServerError;
 use messenger_plus::stream::{DualMessenger};
 use config::stream_config::StreamConfiguration;
 use unsafe_code::vid_processing;
 use unsafe_code::output::{FormatContext, open_video_file, write_video_frame, write_video_header, write_video_trailer, write_null_video_frame};
 use unsafe_code::{Rational};
 use unsafe_code::packet::{Packet, DataPacket};
-use unsafe_code::img_processing;
-use config::codec_parameters::put_raw_codecpars_into_stream;
 use serde_json;
 use bincode;
 
@@ -112,7 +106,7 @@ fn main_client_handler(ip_channel: Receiver<ClientIPInformation>, instruction_re
                 end_exec = true;
             },
             _ => {
-                handle_client_changes(&mut thread_list, &ip_channel);
+                let _ = handle_client_changes(&mut thread_list, &ip_channel);
 
                 for item in &thread_list {
                     let _ = item.thread_channel.send(current_instruction);
@@ -142,7 +136,7 @@ fn handle_client_changes(thread_list: &mut Vec<ClientThreadInformation>, ip_chan
                     if !(thread_info.socket_addr == i) {
                         new_thread_list.push(thread_info);
                     } else {
-                        thread_info.thread_channel.send(RecordingInstructions::Cleanup);
+                        let _ = thread_info.thread_channel.send(RecordingInstructions::Cleanup);
                     }
                 }
                 thread_list.append(&mut new_thread_list);
@@ -179,15 +173,14 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
                     println!("unwrapped serde value");
                     let mut format_context: FormatContext = FormatContext::new(CString::new("video.mp4").unwrap());
                     println!("generated format context");
-                    let mut encoding_context = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, Rational::new(1, 30), 12, 0));
-                    let mut pkt_stream = format_context.create_stream(encoding_context);
+                    let encoding_context = try!(vid_processing::create_encoding_context(AV_CODEC_ID_H264, 480, 640, Rational::new(1, 30), 12, 0));
+                    let pkt_stream = format_context.create_stream(encoding_context);
                     
                     println!("created stream");
                     try!(open_video_file("video.mp4", &mut format_context));
                     println!("opened vid file");
                     try!(write_video_header(&mut format_context));
                     println!("wrote video header");
-                    // let mut decoding_context = try!(vid_processing::create_decoding_context_from_stream_configuration(unwrapped_stream_config));
                     // let mut jpeg_context = try!(img_processing::create_jpeg_context(480, 640, Rational::new(1, 30)));
 
                     while !completed_stream {
@@ -204,13 +197,13 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
                             Some(v) => {
                                 frames_read = frames_read + 1;
 
-                                let mut data_packet: DataPacket = try!(bincode::deserialize(v.as_slice()));
+                                let data_packet: DataPacket = try!(bincode::deserialize(v.as_slice()));
                                 let mut packet = Packet::from(data_packet);
                                 packet.dts = packet.pts;
 
                                 println!("Recieved packet from client");
 
-                                let raw_frame_chance = try!(write_video_frame(&mut format_context, &pkt_stream, packet));
+                                let _ = try!(write_video_frame(&mut format_context, &pkt_stream, packet));
                                 //let file = try!(File::create(String::from("output/picture_") + Uuid::new_v4().to_string().as_ref() + String::from(".jpeg").as_ref()));
                                 //try!(img_processing::write_frame_to_jpeg(&mut jpeg_context, raw_frame, file));
                             }
@@ -229,6 +222,6 @@ fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInst
         println!("In clean-up loop");
     }
     println!("Cleaning up");
-    dual_channel.release().shutdown(Shutdown::Both);
+    let _ = dual_channel.release().shutdown(Shutdown::Both);
     Ok(())
 }

@@ -1,6 +1,3 @@
-use std::ops::{Deref, DerefMut, Drop};
-use std::convert::{From};
-use config::stream_config::StreamConfiguration;
 use unsafe_code::CodecContext;
 use unsafe_code::output::Stream;
 

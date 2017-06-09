@@ -1,11 +1,7 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext};
 use config::stream_config::*;
 
-use std::fs::File;
-use std::io::Write;
-
 use std::ptr;
-use std::slice::from_raw_parts;
 use std::ffi::CString;
 
 use ffmpeg_sys::*;
@@ -56,7 +52,7 @@ pub fn create_decoding_context_from_stream_configuration(stream: StreamConfigura
     }
 }
 
-unsafe fn allocate_decoding_codec_from_av_stream(stream_config: &mut AVStream, timebase: Rational) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
+unsafe fn allocate_decoding_codec_from_av_stream(stream_config: &mut AVStream) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
     let codec_ptr: *mut AVCodec = avcodec_find_decoder((*stream_config.codecpar).codec_id);
     let decoding_context_ptr: *mut AVCodecContext = avcodec_alloc_context3(codec_ptr);
 
@@ -80,9 +76,9 @@ unsafe fn allocate_decoding_codec_from_av_stream(stream_config: &mut AVStream, t
     Ok((codec_ptr, decoding_context_ptr))
 }
 
-pub fn create_decoding_context_from_av_stream(stream: &mut AVStream, timebase: Rational) -> Result<CodecContext, UnsafeError> {
+pub fn create_decoding_context_from_av_stream(stream: &mut AVStream) -> Result<CodecContext, UnsafeError> {
     unsafe {
-        match allocate_decoding_codec_from_av_stream(stream, timebase) {
+        match allocate_decoding_codec_from_av_stream(stream) {
             Ok((_, context)) => Ok(CodecContext::from(context)),
             Err(e) => Err(e),
         }
@@ -105,20 +101,6 @@ unsafe fn decode_raw_packet<'a>(codec: &mut AVCodecContext, packet: &AVPacket) -
     }
 
     Ok(&mut *frame)
-}
-
-pub fn decode_raw_pkt_with_err_handling<'a>(context: &mut AVCodecContext, packet: &AVPacket, file: &mut File) -> Result<&'a mut AVFrame, UnsafeError> {
-    unsafe {
-        match decode_raw_packet(context, packet) {
-            Ok(v) => Ok(v),
-            Err(e) => {
-                file.write(b"--- START ---");
-                file.write(from_raw_parts(packet.data, packet.size as usize));
-                file.write(b"--- END ---");
-                Err(e)
-            }
-        }
-    }
 }
 
 pub fn decode_packet<'a>(context: &mut AVCodecContext, packet: &AVPacket) -> Result<&'a mut AVFrame, UnsafeError> {

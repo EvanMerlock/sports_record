@@ -2,7 +2,7 @@ use config::stream_config::StreamConfiguration;
 use unsafe_code::packet::DataPacket;
 use unsafe_code::UnsafeError;
 use std::convert::From;
-use std::io::{Write, Error};
+use std::io::Write;
 
 use serde_json;
 use bincode;

@@ -1,13 +1,8 @@
 use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
-use messenger_plus::stream::DualMessenger;
 use unsafe_code::packet::Packet;
-
-use std::net::TcpStream;
-use std::io::Write;
 
 use std::ptr;
 use std::ffi::CString;
-use std::slice::from_raw_parts;
 
 use ffmpeg_sys::*;
 use libc;

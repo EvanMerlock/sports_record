@@ -5,7 +5,7 @@ use std::io;
 use std::str;
 use std::net::AddrParseError;
 use rusqlite;
-use unsafe_code::{UnsafeError, UnsafeErrorKind};
+use unsafe_code::UnsafeError;
 use bincode;
 
 #[derive(Debug)]

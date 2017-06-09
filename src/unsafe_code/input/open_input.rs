@@ -1,4 +1,4 @@
-use unsafe_code::{UnsafeError, UnsafeErrorKind, Rational};
+use unsafe_code::{UnsafeError, UnsafeErrorKind};
 
 use ffmpeg_sys::*;
 

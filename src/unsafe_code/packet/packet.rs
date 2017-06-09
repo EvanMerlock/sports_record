@@ -104,10 +104,10 @@ impl From<*mut AVPacket> for Packet {
 impl From<Vec<u8>> for Packet {
     fn from(pkt: Vec<u8>) -> Packet {
         unsafe {
-            let mut packet = Packet::new(pkt.len());
+            let packet = Packet::new(pkt.len());
             let mut data = from_raw_parts_mut(packet.0.data, packet.0.size as usize);
 
-            data.write(pkt.as_ref());
+            let _ = data.write(pkt.as_ref());
 
             packet
         }
@@ -120,7 +120,7 @@ impl From<DataPacket> for Packet {
             let mut packet = Packet::new(pkt.packet.len());
             let mut data = from_raw_parts_mut(packet.0.data, packet.0.size as usize);
 
-            data.write(pkt.packet.as_ref());
+            let _ = data.write(pkt.packet.as_ref());
             packet.pts = pkt.pts;
             packet.dts = pkt.dts;
 

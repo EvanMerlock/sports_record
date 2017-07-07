@@ -5,6 +5,7 @@ use iron::prelude::*;
 use iron::headers::ContentType;
 use iron::status;
 use router::Router;
+use iron::mime::{Mime, TopLevel, SubLevel};
 
 pub fn home_handler(_: &mut Request) -> IronResult<Response> {
     let mut res: Response = Response::with((status::Ok, body_writer::VideoHttpWriter::new()));
@@ -18,7 +19,7 @@ pub fn individual_video_handler(req: &mut Request) -> IronResult<Response> {
         Some(q) => {
             let uuid: &str = q.find("query").unwrap_or("bad_file");
             let mut res: Response = Response::with((status::Ok, body_writer::VideoPageHttpWriter::new(uuid)));
-            res.headers.set(ContentType::html());
+            res.headers.set(ContentType("video/mp4".parse().unwrap()));
             Ok(res)
         }
         None => {

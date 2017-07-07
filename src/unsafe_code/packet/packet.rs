@@ -6,7 +6,7 @@ use std::io::Write;
 
 use std::slice::{from_raw_parts_mut, from_raw_parts};
 
-use unsafe_code::Rational;
+use unsafe_code::{Rational, AsRawPtr};
 use unsafe_code::packet::DataPacket;
 
 use ffmpeg_sys::*;
@@ -38,6 +38,16 @@ impl Packet {
         unsafe {
             av_packet_rescale_ts(&mut **self, from_ts.into(), new_ts.into());
         }
+    }
+}
+
+impl AsRawPtr<AVPacket> for Packet {
+    fn as_ptr(&self) -> *const AVPacket {
+        &self.0
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut AVPacket {
+        &mut self.0
     }
 }
 
@@ -129,6 +139,22 @@ impl From<DataPacket> for Packet {
     }
 }
 
+impl AsRef<AVPacket> for Packet {
+    fn as_ref(&self) -> &AVPacket {
+        unsafe {
+            &self.0
+        }
+    }
+}
+
+impl AsMut<AVPacket> for Packet {
+    fn as_mut(&mut self) -> &mut AVPacket {
+        unsafe {
+            &mut self.0
+        }
+    }
+}
+
 impl Drop for Packet {
     fn drop(&mut self) {
         unsafe {
@@ -141,12 +167,12 @@ impl Deref for Packet {
     type Target = AVPacket;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.as_ref()
     } 
 }
 
 impl DerefMut for Packet {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        self.as_mut()
     } 
 }

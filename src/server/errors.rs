@@ -4,11 +4,12 @@ use std::fmt;
 use std::io;
 use std::str;
 use std::net::AddrParseError;
+use std::sync::mpsc::RecvError;
 
 use unsafe_code::UnsafeError;
 
 use rusqlite;
-use bincode;
+use serde_cbor;
 
 #[derive(Debug)]
 pub enum ServerErrorKind {
@@ -18,7 +19,8 @@ pub enum ServerErrorKind {
     UTF8Error(str::Utf8Error),
     AddrParseErr(AddrParseError),
     UnsafeError(UnsafeError),
-    BincodeError(Box<bincode::ErrorKind>),
+    CBORError(serde_cbor::Error),
+    RecvError(RecvError),
 }
 
 impl fmt::Display for ServerErrorKind {
@@ -30,7 +32,8 @@ impl fmt::Display for ServerErrorKind {
             &ServerErrorKind::UTF8Error(ref err) => err.fmt(fmter),
             &ServerErrorKind::AddrParseErr(ref err) => err.fmt(fmter),
             &ServerErrorKind::UnsafeError(ref err) => err.fmt(fmter),
-            &ServerErrorKind::BincodeError(ref err) => err.fmt(fmter),
+            &ServerErrorKind::CBORError(ref err) => err.fmt(fmter),
+            &ServerErrorKind::RecvError(ref err) => err.fmt(fmter),
         }
     }
 }
@@ -92,8 +95,14 @@ impl From<UnsafeError> for ServerError {
     }
 }
 
-impl From<Box<bincode::ErrorKind>> for ServerError {
-    fn from(err: Box<bincode::ErrorKind>) -> ServerError {
-        ServerError::new(ServerErrorKind::BincodeError(err))
+impl From<serde_cbor::Error> for ServerError {
+    fn from(err: serde_cbor::Error) -> ServerError {
+        ServerError::new(ServerErrorKind::CBORError(err))
+    }
+}
+
+impl From<RecvError> for ServerError {
+    fn from(err: RecvError) -> ServerError {
+        ServerError::new(ServerErrorKind::RecvError(err))
     }
 }

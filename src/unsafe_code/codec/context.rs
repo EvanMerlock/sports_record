@@ -4,6 +4,9 @@ use std::ops::{Drop, Deref, DerefMut};
 
 use std::ptr;
 
+use unsafe_code::{UnsafeError, UnsafeErrorKind, Codec, AsRawPtr};
+use unsafe_code::codec::{EncodingCodec, DecodingCodec, EncodingCodecContext, DecodingCodecContext};
+
 use ffmpeg_sys::*;
 
 pub struct CodecContext(*mut AVCodecContext);
@@ -11,19 +14,45 @@ pub struct CodecContext(*mut AVCodecContext);
 unsafe impl Send for CodecContext {}
 
 impl CodecContext {
-    fn new() -> CodecContext {
+    pub fn new() -> CodecContext {
         unsafe {
             CodecContext(avcodec_alloc_context3(ptr::null()))
         }
     }
+
+    pub fn new_codec_based_context<T: AsRawPtr<AVCodec> + Sized>(codec: &T) -> CodecContext {
+        unsafe {
+            CodecContext(avcodec_alloc_context3(codec.as_ptr()))
+        }
+    }
+
+    pub fn open_decoding(mut self, codec: DecodingCodec) -> Result<DecodingCodecContext, UnsafeError> {
+        unsafe {
+            let ret = avcodec_open2(self.as_mut_ptr(), codec.as_ptr(), ptr::null_mut());
+            if ret < 0 {
+                return Err(UnsafeError::new(UnsafeErrorKind::OpenDecoder(ret)));
+            }
+            Ok(DecodingCodecContext::new(codec, self))
+        }
+    }
+
+    pub fn open_encoding(mut self, codec: EncodingCodec) -> Result<EncodingCodecContext, UnsafeError> {
+        unsafe {
+            let ret = avcodec_open2(self.as_mut_ptr(), codec.as_ptr(), ptr::null_mut());
+            if ret < 0 {
+                return Err(UnsafeError::new(UnsafeErrorKind::OpenEncoder(ret)));
+            }
+            Ok(EncodingCodecContext::new(codec, self))
+        }
+    }
 }
 
-impl CodecContext {
-    pub unsafe fn as_ptr(&self) -> *const AVCodecContext {
+impl AsRawPtr<AVCodecContext> for CodecContext {
+    fn as_ptr(&self) -> *const AVCodecContext {
         self.0 as *const _
     }
 
-    pub unsafe fn as_mut_ptr(&mut self) -> *mut AVCodecContext {
+    fn as_mut_ptr(&mut self) -> *mut AVCodecContext {
         self.0
     }
 }
@@ -67,9 +96,26 @@ impl DerefMut for CodecContext {
     }
 }
 
+impl AsRef<AVCodecContext> for CodecContext {
+    fn as_ref(&self) -> &AVCodecContext {
+        unsafe {
+            &*self.0
+        }
+    }
+}
+
+impl AsMut<AVCodecContext> for CodecContext {
+    fn as_mut(&mut self) -> &mut AVCodecContext {
+        unsafe {
+            &mut *self.0
+        }
+    }
+}
+
 impl Drop for CodecContext {
     fn drop(&mut self) {
         unsafe {
+            println!("dropping codec context");
             avcodec_free_context(&mut self.as_mut_ptr());
         }
     }

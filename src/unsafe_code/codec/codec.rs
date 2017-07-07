@@ -2,7 +2,8 @@ use std::marker::{Send};
 use std::convert::{From};
 use std::ops::{Deref, DerefMut};
 
-use unsafe_code::CodecId;
+use unsafe_code::{CodecId, AsRawPtr};
+use unsafe_code::codec::{EncodingCodec, DecodingCodec};
 
 use ffmpeg_sys::*;
 
@@ -12,24 +13,16 @@ unsafe impl Send for Codec {}
 
 impl Codec {
 
-    pub fn new_encoder(id: CodecId) -> Codec {
+    pub fn new_encoder(id: CodecId) -> EncodingCodec {
         unsafe {
-            Codec(avcodec_find_encoder(*id))
+            EncodingCodec::from(Codec(avcodec_find_encoder(*id)))
         }
     }
 
-    pub fn new_decoder(id: CodecId) -> Codec {
+    pub fn new_decoder(id: CodecId) -> DecodingCodec {
         unsafe {
-            Codec(avcodec_find_decoder(*id))
+            DecodingCodec::from(Codec(avcodec_find_decoder(*id)))
         }
-    }
-
-    pub unsafe fn as_ptr(&self) -> *const AVCodec {
-        self.0 as *const _
-    }
-
-    pub unsafe fn as_mut_ptr(&mut self) -> *mut AVCodec {
-        self.0
     }
 }
 
@@ -39,20 +32,28 @@ impl From<*mut AVCodec> for Codec {
     }
 }
 
-impl Deref for Codec {
-    type Target = AVCodec;
-
-    fn deref(&self) -> &Self::Target {
+impl AsRef<AVCodec> for Codec {
+    fn as_ref(&self) -> &AVCodec {
         unsafe {
             &*self.0
         }
     }
 }
 
-impl DerefMut for Codec {
-    fn deref_mut(&mut self) -> &mut Self::Target {
+impl AsMut<AVCodec> for Codec {
+    fn as_mut(&mut self) -> &mut AVCodec {
         unsafe {
             &mut *self.0
         }
-    } 
+    }
+}
+
+impl AsRawPtr<AVCodec> for Codec{
+    fn as_ptr(&self) -> *const AVCodec {
+        self.0 as *const _
+    }
+
+    fn as_mut_ptr(&mut self) -> *mut AVCodec {
+        self.0
+    }
 }

@@ -36,8 +36,8 @@ impl<'a> From<&'a AVStream> for StreamConfiguration {
     }
 }
 
-impl<'a> From<&'a CodecContext> for StreamConfiguration {
-    fn from(item: &'a CodecContext) -> StreamConfiguration {
+impl<'a> From<&'a AVCodecContext> for StreamConfiguration {
+    fn from(item: &'a AVCodecContext) -> StreamConfiguration {
             StreamConfiguration {
                 bit_rate: item.bit_rate,
                 height: item.height,

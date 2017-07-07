@@ -3,7 +3,7 @@ use std::slice::from_raw_parts;
 
 use unsafe_code::packet::Packet;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DataPacket {
     pub packet: Vec<u8>,
     pub pts: i64,

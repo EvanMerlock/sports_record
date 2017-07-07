@@ -1,7 +1,7 @@
 
 use std::ptr;
 
-use unsafe_code::{UnsafeError, UnsafeErrorKind};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, AsRawPtr};
 use unsafe_code::sws::SWSContext;
 
 use ffmpeg_sys::*;

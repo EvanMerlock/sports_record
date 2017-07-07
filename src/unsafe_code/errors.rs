@@ -2,7 +2,8 @@ use std::error::Error;
 use std::fmt;
 use std::io;
 use serde_json;
-use bincode;
+use serde_cbor;
+use std::sync::mpsc::RecvError;
 
 
 #[derive(Debug)]
@@ -29,8 +30,10 @@ pub enum UnsafeErrorKind {
     WriteTrailerError(i32),
     WriteVideoFrameError(i32),
 
-    BincodeError(Box<bincode::ErrorKind>),
+    CBORError(serde_cbor::Error),
     SerdeJsonError(serde_json::Error),
+
+    RecvError(RecvError),
 }
 
 impl fmt::Display for UnsafeErrorKind {
@@ -51,8 +54,9 @@ impl fmt::Display for UnsafeErrorKind {
             &UnsafeErrorKind::WriteHeaderError(ref e)     => write!(fmter, "An issue occured while trying to write the header of the AVIO file: ERR {}",    e),
             &UnsafeErrorKind::WriteTrailerError(ref e)         => write!(fmter, "An issue occured while trying to write the trailer of the AVIO file: ERR {}",   e),
             &UnsafeErrorKind::WriteVideoFrameError(ref e) => write!(fmter, "An issue occured while trying to write a video frame to the AVIO file: ERR {}", e),
-            &UnsafeErrorKind::BincodeError(ref e)         => write!(fmter, "{:?}", e),
+            &UnsafeErrorKind::CBORError(ref e)         => write!(fmter, "{:?}", e),
             &UnsafeErrorKind::SerdeJsonError(ref e)       => write!(fmter, "A Serde Error occured: {}", e),
+            &UnsafeErrorKind::RecvError(ref e)            => e.fmt(fmter),
         }
     }
 }
@@ -90,14 +94,20 @@ impl From<io::Error> for UnsafeError {
     }
 }
 
-impl From<Box<bincode::ErrorKind>> for UnsafeError {
-    fn from(err: Box<bincode::ErrorKind>) -> UnsafeError {
-        UnsafeError::new(UnsafeErrorKind::BincodeError(err))
+impl From<serde_cbor::Error> for UnsafeError {
+    fn from(err: serde_cbor::Error) -> UnsafeError {
+        UnsafeError::new(UnsafeErrorKind::CBORError(err))
     }
 }
 
 impl From<serde_json::Error> for UnsafeError {
     fn from(err: serde_json::Error) -> UnsafeError {
         UnsafeError::new(UnsafeErrorKind::SerdeJsonError(err))
+    }
+}
+
+impl From<RecvError> for UnsafeError {
+    fn from(err: RecvError) -> UnsafeError {
+        UnsafeError::new(UnsafeErrorKind::RecvError(err))
     }
 }

@@ -13,6 +13,7 @@ extern crate messenger_plus;
 extern crate time;
 extern crate libc;
 extern crate bincode;
+extern crate serde_cbor;
 
 pub mod server;
 pub mod client;

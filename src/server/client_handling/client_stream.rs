@@ -24,10 +24,7 @@ use messenger_plus::stream::{DualMessenger};
 use ffmpeg_sys::*;
 
 pub struct ClientStream {
-    client_handler_channel: Sender<ClientIPInformation>,
-    client_handler_lock: JoinHandle<()>,
-
-    instruction_sender: Sender<RecordingInstructions>,
+    current_clients: Vec<ClientThreadInformation>,
 }
 
 pub struct ClientThreadInformation {
@@ -50,8 +47,13 @@ pub enum RecordingInstructions {
 }
 
 impl ClientThreadInformation {
-    pub fn new(sock: SocketAddr, thread_handle: JoinHandle<()>, channel: Sender<RecordingInstructions>) -> ClientThreadInformation {
-        ClientThreadInformation { socket_addr: sock, thread_handle: thread_handle, thread_channel: channel }
+    pub fn new(sock: SocketAddr, mut tcp_stream: TcpStream) -> ClientThreadInformation {
+        let (send, recv) = channel();
+        let thread_handle = thread::spawn(move || {
+            let val = individual_client_handler(tcp_stream, recv);
+            println!("{:?}", val);
+        });
+        ClientThreadInformation { socket_addr: sock, thread_handle: thread_handle, thread_channel: send }
     }
 }
 
@@ -64,90 +66,50 @@ impl Drop for ClientThreadInformation {
 impl ClientStream {
 
     pub fn new() -> Result<ClientStream, ServerError> {
-        let (client_ip_send, client_ip_recv) = channel();
-        let (instruct_send, instruct_recv) = channel();
-
-        let client_handler_channel = thread::spawn(move || {
-            main_client_handler(client_ip_recv, instruct_recv);
-        });
-
         let stream = ClientStream {
-            client_handler_channel: client_ip_send,
-            client_handler_lock: client_handler_channel,
-
-            instruction_sender: instruct_send,
+            current_clients: vec![],
         };
-
         Ok(stream)
-        
     }
 
-    pub fn get_instruction_sender(&self) -> Sender<RecordingInstructions> {
-        self.instruction_sender.clone()
+    pub fn add_client(&mut self, info: TcpStream) -> Result<(), ServerError> {
+        let socket_addr = try!(info.peer_addr());
+        self.current_clients.push(ClientThreadInformation::new(socket_addr, info));
+        Ok(())
     }
 
-    pub fn get_ip_information_sender(&self) -> Sender<ClientIPInformation> {
-        self.client_handler_channel.clone()
-    }
+    pub fn remove_client(&mut self, info: SocketAddr) {
+        let mut new_thread_list: Vec<ClientThreadInformation> = Vec::new();
 
-}
-
-fn main_client_handler(ip_channel: Receiver<ClientIPInformation>, instruction_receiver: Receiver<RecordingInstructions>) {
-
-    let mut thread_list: Vec<ClientThreadInformation> = Vec::new();
-    
-    let mut end_exec = false;
-
-    while !end_exec {
-        let current_instruction = instruction_receiver.recv().unwrap();
-
-        match current_instruction {
-            RecordingInstructions::Cleanup => {
-                for item in &thread_list {
-                    let _ = item.thread_channel.send(current_instruction);
-                }
-
-                end_exec = true;
-            },
-            _ => {
-                let _ = handle_client_changes(&mut thread_list, &ip_channel);
-
-                for item in &thread_list {
-                    let _ = item.thread_channel.send(current_instruction);
-                }
+        for thread_info in self.current_clients.drain(0..) {
+            if !(thread_info.socket_addr == info) {
+                new_thread_list.push(thread_info);
+            } else {
+                let _ = thread_info.thread_channel.send(RecordingInstructions::Cleanup);
             }
         }
+        self.current_clients.append(&mut new_thread_list);
     }
 
-}
+    pub fn start_recording(&self, num: u32) {
+        self.send_command(RecordingInstructions::StartRecording(num));
+    }
 
-fn handle_client_changes(thread_list: &mut Vec<ClientThreadInformation>, ip_channel: &Receiver<ClientIPInformation>) -> Result<(), ServerError> {
-    for ip_info in ip_channel.try_iter() {
-        match ip_info {
-            ClientIPInformation::Add(i) => {
-                let (send, recv) = channel();
-                let socket_addr = try!(i.peer_addr());
-                let temp_thread_handle = thread::spawn(move || {
-                    let val = individual_client_handler(i, recv);
-                    println!("{:?}", val);
-                });
-                thread_list.push(ClientThreadInformation::new(socket_addr, temp_thread_handle, send));
-            }, 
-            ClientIPInformation::Remove(i) => {
-                let mut new_thread_list: Vec<ClientThreadInformation> = Vec::new();
+    pub fn stop_recording(&self) {
+        self.send_command(RecordingInstructions::StopRecording);
+    }
 
-                for thread_info in thread_list.drain(0..) {
-                    if !(thread_info.socket_addr == i) {
-                        new_thread_list.push(thread_info);
-                    } else {
-                        let _ = thread_info.thread_channel.send(RecordingInstructions::Cleanup);
-                    }
-                }
-                thread_list.append(&mut new_thread_list);
-            },
+    pub fn clean_up(&mut self) {
+        self.send_command(RecordingInstructions::Cleanup);
+        self.current_clients.clear();
+    }
+
+    fn send_command(&self, current_command: RecordingInstructions) {
+        for item in &self.current_clients {
+            let _ = item.thread_channel.send(current_command);
         }
     }
-    Ok(())
+
 }
 
 fn individual_client_handler(mut stream: TcpStream, recv: Receiver<RecordingInstructions>) -> Result<(), ServerError> {
@@ -231,7 +193,7 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
             }
             Some(v) => {
                 if v == b"===ENDTRANSMISSION===" {
-                    println!("received end of transmission");
+                    println!("EOT");
                     completed_stream = true;
                     break;
                 }

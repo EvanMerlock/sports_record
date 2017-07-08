@@ -3,7 +3,7 @@ use std::thread;
 use std::result::Result;
 use std::path::{Path, PathBuf};
 use std::fs::File;
-use std::sync::{Arc};
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Sender};
 
 use server::client_handling::*;
@@ -20,10 +20,8 @@ use router::Router;
 pub struct RecordingServer {
     listener: Arc<TcpListener>,
     iron_server: Listening,
-    sql_db_location: PathBuf,
-    ip_sender: Sender<ClientIPInformation>,
-    instruction_sender: Sender<RecordingInstructions>,
-    client_stream_handler: ClientStream,
+    sql_db: Arc<Connection>,
+    client_handler: ClientHandler,
 }
 
 impl RecordingServer {
@@ -36,7 +34,7 @@ impl RecordingServer {
         }
 
         let connection = try!(Connection::open(db_loc.to_owned()));
-        try!(connection.execute("CREATE TABLE IF NOT EXISTS videos (id INTEGER)", &[]));
+        try!(connection.execute("CREATE TABLE IF NOT EXISTS videos (id INTEGER, uuid TEXT)", &[]));
 
         let mut router = Router::new();
         router.get("/", web::web_handler::home_handler, "index");
@@ -51,38 +49,65 @@ impl RecordingServer {
             Ok(item) => return Ok(RecordingServer { 
                 listener: Arc::new(tcp), 
                 iron_server: item, 
-                sql_db_location: db_loc.to_owned(),
-                ip_sender: client_stream.get_ip_information_sender(),
-                instruction_sender: client_stream.get_instruction_sender(),
-                client_stream_handler: client_stream,
+                sql_db: Arc::new(connection),
+                client_handler: ClientHandler::new(Arc::new(Mutex::new(client_stream))),
             }),
             Err(_) => return Err(ServerError::new(ServerErrorKind::IronError)),
         }
 
     }
 
-    pub fn get_instruction_sender(&self) -> Sender<RecordingInstructions> {
-        self.instruction_sender.clone()
-    }
-
-    pub fn get_ip_sender(&self) -> Sender<ClientIPInformation> {
-        self.ip_sender.clone()
+    pub fn get_client_handler(&self) -> &ClientHandler {
+        &self.client_handler
     }
 
     pub fn start_handling_requests(&self) {
         let listener = self.listener.clone();
-        let ip_sender = self.ip_sender.clone();
+        let ip_sender = self.client_handler.get_internal();
         thread::spawn(move || {
             for stream in listener.incoming() {
                 match stream {
                     Ok(stream) => {
-                            println!("Received client");
-                            let _ = ip_sender.send(ClientIPInformation::Add(stream));
+                            println!("Received Client: {:?}", stream.peer_addr());
+                            let mut lock = ip_sender.lock().unwrap();
+                            let _ = lock.add_client(stream);
                     }
-                    Err(e) => { println!("Err occured: {}", e) }
+                    Err(e) => println!("An error occurred: {}", e), 
                 }
             }
         });
     }
 
+}
+
+pub struct ClientHandler(Arc<Mutex<ClientStream>>);
+
+impl ClientHandler {
+    pub fn new(internal: Arc<Mutex<ClientStream>>) -> ClientHandler {
+        ClientHandler(internal)
+    }
+
+    pub fn start_recording(&self, i: u32) {
+        let lock = self.0.lock().unwrap();
+        lock.start_recording(i);
+    }
+
+    pub fn stop_recording(&self) {
+        let lock = self.0.lock().unwrap();
+        lock.stop_recording();
+    }
+
+    pub fn clean_up(&self) {
+        let mut lock = self.0.lock().unwrap();
+        lock.clean_up();
+    }
+
+    pub fn remove_client(&self, info: SocketAddr) {
+        let mut lock = self.0.lock().unwrap();
+        lock.remove_client(info);
+    }
+
+    fn get_internal(&self) -> Arc<Mutex<ClientStream>> {
+        self.0.clone()
+    }
 }

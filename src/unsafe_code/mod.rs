@@ -10,6 +10,7 @@ mod codec;
 mod utils;
 mod errors;
 mod traits;
+mod frame;
 mod packet;
 
 pub use self::packet::*;
@@ -17,3 +18,4 @@ pub use self::codec::*;
 pub use self::utils::*;
 pub use self::errors::*;
 pub use self::traits::*;
+pub use self::frame::*;

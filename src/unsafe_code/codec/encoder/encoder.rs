@@ -3,7 +3,7 @@ use std::convert::{From, AsRef, AsMut};
 use std::ops::{Deref, DerefMut};
 
 use unsafe_code::codec::{CodecContext, Codec};
-use unsafe_code::AsRawPtr;
+use unsafe_code::{AsRawPtr, Packet, Frame, UnsafeError, UnsafeErrorKind};
 
 use ffmpeg_sys::*;
 
@@ -46,6 +46,44 @@ pub struct EncodingCodecContext(CodecContext, EncodingCodec);
 impl EncodingCodecContext {
     pub fn new(codec: EncodingCodec, context: CodecContext) -> EncodingCodecContext {
         EncodingCodecContext(context, codec)
+    }
+
+    unsafe fn encode_raw_frame(&mut self, mut frame: Frame) -> Result<Vec<Packet>, UnsafeError> {    
+        let ret = avcodec_send_frame(self.as_mut_ptr(), frame.as_mut_ptr());
+        let mut vec = Vec::new();
+
+        if ret < 0 {
+            return Err(UnsafeError::new(UnsafeErrorKind::SendFrame(ret)));
+        }
+
+        while ret >= 0 {
+            let packet = av_packet_alloc();
+            let ret = avcodec_receive_packet(self.as_mut_ptr(), packet);
+
+            if ret == -11 || ret == AVERROR_EOF {
+                return Ok(vec);
+            } else if ret < 0 {
+                return Err(UnsafeError::new(UnsafeErrorKind::ReceivePacket(ret)));
+            }
+
+            vec.push(Packet::from(Box::from_raw(packet)));
+
+        }
+
+        Ok(vec)
+
+    }
+
+    pub fn encode_frame(&mut self, mut frame: Frame) -> Result<Vec<Packet>, UnsafeError> {
+        unsafe {
+            self.encode_raw_frame(frame)
+        }
+}
+
+    pub fn encode_null_frame(&mut self) -> Result<Vec<Packet>, UnsafeError> {
+        unsafe {
+            self.encode_raw_frame(Frame::null())
+        }
     }
 }
 

@@ -7,7 +7,7 @@ use std::ffi::CString;
 
 use client::ClientStatusFlag;
 
-use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational, CodecId};
+use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational, CodecId, Frame};
 use unsafe_code::vid_processing;
 use unsafe_code::format::{FormatContext, InputContext, Stream};
 use unsafe_code::sws;
@@ -15,8 +15,6 @@ use unsafe_code::sws::SWSContext;
 use unsafe_code::{Packet, DataPacket};
 use config::stream_config::StreamConfiguration;
 use networking::NetworkPacket;
-
-use time::{Duration, PreciseTime};
 
 use ffmpeg_sys::*;
 
@@ -50,7 +48,6 @@ pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<N
         let _ = stream.send(NetworkPacket::JSONPayload(output_stream_configuration));
         let render_thread_handle = spawn_thread(context_storage, stream, packet_rx);
 
-        let start_time = PreciseTime::now();
         let mut packets_read = 0;
         loop {
             if let Ok(msg) = message_transfer.try_recv() {
@@ -125,9 +122,9 @@ fn spawn_thread(mut context_storage: CodecStorage, stream: Sender<NetworkPacket>
 }
 
 fn transcode_packet(contexts: &mut CodecStorage, packet: Packet, frame_loc: i64) -> Result<NetworkPacket, UnsafeError> {
-    let raw_frame: &mut AVFrame = try!(vid_processing::decode_packet(contexts.decoding_context.borrow_mut(), &packet));
+    let raw_frame: Frame = try!(vid_processing::decode_packet(contexts.decoding_context.borrow_mut(), &packet));
 
-    let scaled_frame: &mut AVFrame = try!(sws::change_pixel_format(raw_frame, contexts.sws_context.borrow_mut(), 32, frame_loc));
+    let scaled_frame: Frame = try!(sws::change_pixel_format(raw_frame, contexts.sws_context.borrow_mut(), 32, frame_loc));
     println!("current frame pts: {}", scaled_frame.pts);
 
     let pkts = try!(vid_processing::encode_frame(contexts.encoding_context.borrow_mut(), scaled_frame));

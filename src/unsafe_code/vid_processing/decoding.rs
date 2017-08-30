@@ -2,7 +2,7 @@
 use std::ptr;
 use std::ffi::CString;
 
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, CodecId, AsRawPtr};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, CodecId, AsRawPtr, Frame};
 use config::stream_config::*;
 use unsafe_code::codec::{DecodingCodecContext, DecodingCodec, Codec};
 
@@ -35,7 +35,7 @@ pub fn create_decoding_context_from_av_stream(stream: &mut AVStream) -> Result<D
     }
 }
 
-unsafe fn decode_raw_packet<'a>(codec: &mut DecodingCodecContext, packet: &AVPacket) -> Result<&'a mut AVFrame, UnsafeError> {
+unsafe fn decode_raw_packet<'a>(codec: &mut DecodingCodecContext, packet: &AVPacket) -> Result<Frame, UnsafeError> {
     let frame = av_frame_alloc();
 
     let ret = avcodec_send_packet(codec.as_mut_ptr(), packet);
@@ -50,10 +50,10 @@ unsafe fn decode_raw_packet<'a>(codec: &mut DecodingCodecContext, packet: &AVPac
         return Err(UnsafeError::new(UnsafeErrorKind::ReceiveFrame(ret)));
     }
 
-    Ok(&mut *frame)
+    Ok(Frame::from(frame))
 }
 
-pub fn decode_packet<'a>(context: &mut DecodingCodecContext, packet: &AVPacket) -> Result<&'a mut AVFrame, UnsafeError> {
+pub fn decode_packet<'a>(context: &mut DecodingCodecContext, packet: &AVPacket) -> Result<Frame, UnsafeError> {
     unsafe {
         decode_raw_packet(context, packet)
     }

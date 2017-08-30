@@ -1,8 +1,7 @@
 use std::ptr;
 use std::ffi::CString;
 
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational, CodecId, AsRawPtr};
-use unsafe_code::packet::Packet;
+use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational, CodecId, AsRawPtr, Frame, Packet};
 use unsafe_code::codec::{EncodingCodecContext, EncodingCodec, Codec};
 
 use ffmpeg_sys::*;
@@ -44,8 +43,8 @@ pub fn create_encoding_context(codec_type: CodecId, height: i32, width: i32, tim
     }
 }
 
-unsafe fn encode_raw_frame(codec: &mut EncodingCodecContext, frame: *mut AVFrame) -> Result<Vec<Packet>, UnsafeError> {    
-    let ret = avcodec_send_frame(codec.as_mut_ptr(), frame);
+unsafe fn encode_raw_frame(codec: &mut EncodingCodecContext, mut frame: Frame) -> Result<Vec<Packet>, UnsafeError> {    
+    let ret = avcodec_send_frame(codec.as_mut_ptr(), frame.as_mut_ptr());
     let mut vec = Vec::new();
 
     if ret < 0 {
@@ -71,7 +70,7 @@ unsafe fn encode_raw_frame(codec: &mut EncodingCodecContext, frame: *mut AVFrame
 
 }
 
-pub fn encode_frame<'a>(context: &mut EncodingCodecContext, frame: &mut AVFrame) -> Result<Vec<Packet>, UnsafeError> {
+pub fn encode_frame<'a>(context: &mut EncodingCodecContext, mut frame: Frame) -> Result<Vec<Packet>, UnsafeError> {
     unsafe {
         encode_raw_frame(context, frame)
     }
@@ -79,6 +78,6 @@ pub fn encode_frame<'a>(context: &mut EncodingCodecContext, frame: &mut AVFrame)
 
 pub fn encode_null_frame<'a>(context: &mut EncodingCodecContext) -> Result<Vec<Packet>, UnsafeError> {
     unsafe {
-        encode_raw_frame(context, ptr::null_mut())
+        encode_raw_frame(context, Frame::null())
     }
 }

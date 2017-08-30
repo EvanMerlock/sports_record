@@ -1,7 +1,7 @@
 
 use std::ptr;
 
-use unsafe_code::{UnsafeError, UnsafeErrorKind, AsRawPtr};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, AsRawPtr, Frame};
 use unsafe_code::sws::SWSContext;
 
 use ffmpeg_sys::*;
@@ -25,7 +25,7 @@ pub fn create_sws_context(height: i32, width: i32, in_pix_fmt: AVPixelFormat, ou
     }
 }
 
-unsafe fn scale_using_sws(old_frame: &mut AVFrame, sws_context: &mut SWSContext, align: i32, pts: i64) -> Result<*mut AVFrame, UnsafeError> {
+unsafe fn scale_using_sws(mut old_frame: Frame, sws_context: &mut SWSContext, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
     let scaled_frame = av_frame_alloc();
     (*scaled_frame).width = old_frame.width;
     (*scaled_frame).height = old_frame.height;
@@ -42,13 +42,13 @@ unsafe fn scale_using_sws(old_frame: &mut AVFrame, sws_context: &mut SWSContext,
 
     let _ = sws_scale(sws_context.as_mut_ptr(), raw_frame_data_ptr, raw_frame_linesize_ptr, 0, old_frame.height, scaled_frame_data_ptr, scaled_frame_linesize_ptr);
 
-    Ok(scaled_frame)
+    Ok(Frame::from(scaled_frame))
 }
 
-pub fn change_pixel_format<'a>(old_frame: &mut AVFrame, sws_context: &mut SWSContext, align: i32, pts: i64) -> Result<&'a mut AVFrame, UnsafeError> {
+pub fn change_pixel_format(mut old_frame: Frame, sws_context: &mut SWSContext, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
     unsafe {
         match scale_using_sws(old_frame, sws_context, align, pts) {
-            Ok(frame) => Ok(&mut *frame),
+            Ok(frame) => Ok(frame),
             Err(e) => Err(e),
         }
     }

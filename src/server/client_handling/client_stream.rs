@@ -13,12 +13,12 @@ use config::stream_config::StreamConfiguration;
 
 use unsafe_code::vid_processing;
 use unsafe_code::format::{FormatContext, InputContext, open_video_file, write_video_frame, write_video_header, write_video_trailer, write_null_video_frame};
-use unsafe_code::{Rational, CodecId, Packet, DataPacket};
+use unsafe_code::{Rational, CodecId, Packet, DataPacket, UnsafeError};
 use unsafe_code::format::OutputContext;
+use networking::NetworkPacket;
 
 use uuid::Uuid;
 use serde_json;
-use serde_cbor;
 use messenger_plus::stream::{DualMessenger};
 
 use ffmpeg_sys::*;
@@ -160,7 +160,7 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
     println!("Attempting to retrieve stream configuration");
     let results = read_channel.read_next_message();
     let stream_config = results.map(|x| {
-        serde_json::from_slice::<StreamConfiguration>(x.as_ref())
+        serde_json::from_slice::<NetworkPacket>(x.as_ref())
     }).expect("failure to collect serde value");
     println!("Retreived stream configuration");
     let unwrapped_stream_config = stream_config.expect("failed to convert from serde");
@@ -192,25 +192,25 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
                 println!("Wrote video trailer and null video frame");
             }
             Some(v) => {
-                if v == b"===ENDTRANSMISSION===" {
-                    println!("EOT");
-                    completed_stream = true;
-                    break;
-                }
                 frames_read = frames_read + 1;
-                let data_packet_attempt = serde_cbor::from_slice::<DataPacket>(v.as_slice());
+                let data_packet_attempt = serde_json::from_slice::<NetworkPacket>(v.as_slice()).map_err(|x| UnsafeError::from(x))?;
                 match data_packet_attempt {
-                    Ok(data_packet) => {
-                        let mut packet = Packet::from(data_packet);
-                        packet.dts = packet.pts;
+                    NetworkPacket::PacketStream(pkts) => {
+                        for pkt in pkts {
+                            let mut packet = Packet::from(pkt);
+                            packet.dts = packet.pts;
 
-                        println!("Recieved packet from client with pts {}", packet.pts);
+                            println!("Recieved packet from client with pts {}", packet.pts);
 
-                        let _ = try!(write_video_frame(&mut format_context, stream_index, packet));
+                            let _ = try!(write_video_frame(&mut format_context, stream_index, packet));
+                        }
+                    }
+                    NetworkPacket::PayloadEnd => {
+                        println!("EOT");
+                        completed_stream = true;
+                        break;
                     },
-                    Err(e) => { 
-                        println!("Error found: {}", e);
-                    },
+                    _ => eprintln!("unexpected item!"),
                 }
             }
         }

@@ -12,12 +12,10 @@ extern crate serde_json;
 extern crate messenger_plus;
 extern crate time;
 extern crate libc;
-extern crate bincode;
-extern crate serde_cbor;
+extern crate rmp_serde;
 
 pub mod server;
 pub mod client;
 pub mod unsafe_code;
 pub mod config;
 pub mod networking;
-pub mod framework;

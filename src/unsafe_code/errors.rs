@@ -2,8 +2,9 @@ use std::error::Error;
 use std::fmt;
 use std::io;
 use serde_json;
-use serde_cbor;
 use std::sync::mpsc::RecvError;
+use rmp_serde::decode;
+use rmp_serde::encode;
 
 
 #[derive(Debug)]
@@ -30,8 +31,9 @@ pub enum UnsafeErrorKind {
     WriteTrailerError(i32),
     WriteVideoFrameError(i32),
 
-    CBORError(serde_cbor::Error),
     SerdeJsonError(serde_json::Error),
+    RMPSDecodeError(decode::Error),
+    RMPSEncodeError(encode::Error),
 
     RecvError(RecvError),
 }
@@ -54,9 +56,10 @@ impl fmt::Display for UnsafeErrorKind {
             &UnsafeErrorKind::WriteHeaderError(ref e)     => write!(fmter, "An issue occured while trying to write the header of the AVIO file: ERR {}",    e),
             &UnsafeErrorKind::WriteTrailerError(ref e)         => write!(fmter, "An issue occured while trying to write the trailer of the AVIO file: ERR {}",   e),
             &UnsafeErrorKind::WriteVideoFrameError(ref e) => write!(fmter, "An issue occured while trying to write a video frame to the AVIO file: ERR {}", e),
-            &UnsafeErrorKind::CBORError(ref e)         => write!(fmter, "{:?}", e),
             &UnsafeErrorKind::SerdeJsonError(ref e)       => write!(fmter, "A Serde Error occured: {}", e),
             &UnsafeErrorKind::RecvError(ref e)            => e.fmt(fmter),
+            &UnsafeErrorKind::RMPSEncodeError(ref e)      => e.fmt(fmter),
+            &UnsafeErrorKind::RMPSDecodeError(ref e)      => e.fmt(fmter),
         }
     }
 }
@@ -94,12 +97,6 @@ impl From<io::Error> for UnsafeError {
     }
 }
 
-impl From<serde_cbor::Error> for UnsafeError {
-    fn from(err: serde_cbor::Error) -> UnsafeError {
-        UnsafeError::new(UnsafeErrorKind::CBORError(err))
-    }
-}
-
 impl From<serde_json::Error> for UnsafeError {
     fn from(err: serde_json::Error) -> UnsafeError {
         UnsafeError::new(UnsafeErrorKind::SerdeJsonError(err))
@@ -109,5 +106,17 @@ impl From<serde_json::Error> for UnsafeError {
 impl From<RecvError> for UnsafeError {
     fn from(err: RecvError) -> UnsafeError {
         UnsafeError::new(UnsafeErrorKind::RecvError(err))
+    }
+}
+
+impl From<decode::Error> for UnsafeError {
+    fn from(err: decode::Error) -> UnsafeError {
+        UnsafeError::new(UnsafeErrorKind::RMPSDecodeError(err))
+    }
+}
+
+impl From<encode::Error> for UnsafeError {
+    fn from(err: encode::Error) -> UnsafeError {
+        UnsafeError::new(UnsafeErrorKind::RMPSEncodeError(err))
     }
 }

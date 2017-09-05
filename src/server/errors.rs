@@ -8,8 +8,8 @@ use std::sync::mpsc::RecvError;
 
 use unsafe_code::UnsafeError;
 
+use rmp_serde::decode;
 use rusqlite;
-use serde_cbor;
 
 #[derive(Debug)]
 pub enum ServerErrorKind {
@@ -19,7 +19,6 @@ pub enum ServerErrorKind {
     UTF8Error(str::Utf8Error),
     AddrParseErr(AddrParseError),
     UnsafeError(UnsafeError),
-    CBORError(serde_cbor::Error),
     RecvError(RecvError),
 }
 
@@ -32,7 +31,6 @@ impl fmt::Display for ServerErrorKind {
             &ServerErrorKind::UTF8Error(ref err) => err.fmt(fmter),
             &ServerErrorKind::AddrParseErr(ref err) => err.fmt(fmter),
             &ServerErrorKind::UnsafeError(ref err) => err.fmt(fmter),
-            &ServerErrorKind::CBORError(ref err) => err.fmt(fmter),
             &ServerErrorKind::RecvError(ref err) => err.fmt(fmter),
         }
     }
@@ -92,12 +90,6 @@ impl From<AddrParseError> for ServerError {
 impl From<UnsafeError> for ServerError {
     fn from(err: UnsafeError) -> ServerError {
         ServerError::new(ServerErrorKind::UnsafeError(err))
-    }
-}
-
-impl From<serde_cbor::Error> for ServerError {
-    fn from(err: serde_cbor::Error) -> ServerError {
-        ServerError::new(ServerErrorKind::CBORError(err))
     }
 }
 

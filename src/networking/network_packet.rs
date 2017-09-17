@@ -31,9 +31,8 @@ impl From<StreamConfiguration> for NetworkPacket {
 
 impl NetworkPacket {
     pub fn write_to(&self, writer: &mut Write) -> Result<(), UnsafeError> {
-        let mut buf = Vec::new();
-        self.serialize(&mut serde_json::Serializer::new(&mut buf))?;
-        writer.write(&buf);
+        let vec = serde_json::to_vec(self)?;
+        writer.write(&vec)?;
         Ok(())
     }
 }

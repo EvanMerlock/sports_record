@@ -2,7 +2,7 @@
 use std::ptr;
 
 use unsafe_code::{UnsafeError, UnsafeErrorKind, AsRawPtr, Frame};
-use unsafe_code::sws::SWSContext;
+use unsafe_code::sws::{SWSContext, SWSImageDefinition};
 
 use ffmpeg_sys::*;
 
@@ -19,9 +19,9 @@ unsafe fn allocate_sws_context(height: i32, width: i32, in_pix_fmt: AVPixelForma
 pub fn create_sws_context(height: i32, width: i32, in_pix_fmt: AVPixelFormat, out_pix_fmt: AVPixelFormat) -> Result<SWSContext, UnsafeError> {
     unsafe {
         match allocate_sws_context(height, width, in_pix_fmt, out_pix_fmt) {
-            Ok(sws) => Ok(SWSContext::from(sws)),
+            Ok(sws) => Ok(SWSContext(sws, SWSImageDefinition::new(height, width, in_pix_fmt), SWSImageDefinition::new(height, width, in_pix_fmt))),
             Err(e) => Err(e),
-        }
+        },
     }
 }
 

@@ -7,6 +7,7 @@ use unsafe_code::codec::{EncodingCodec, DecodingCodec};
 
 use ffmpeg_sys::*;
 
+#[derive(Clone)]
 pub struct Codec(*mut AVCodec);
 
 unsafe impl Send for Codec {}

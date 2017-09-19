@@ -3,6 +3,8 @@ use std::marker::{Send};
 use unsafe_code::codec::{EncodingCodecContext, DecodingCodecContext};
 use unsafe_code::sws::SWSContext;
 
+
+#[derive(Clone)]
 pub struct CodecStorage {
     pub encoding_context: EncodingCodecContext,
     pub decoding_context: DecodingCodecContext,

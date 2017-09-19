@@ -2,11 +2,14 @@ use std::marker::{Send};
 use std::convert::{From, AsRef, AsMut};
 use std::ops::{Deref, DerefMut};
 
+use std::ptr;
+
 use unsafe_code::codec::{CodecContext, Codec};
 use unsafe_code::{AsRawPtr, Packet, Frame, UnsafeError, UnsafeErrorKind};
 
 use ffmpeg_sys::*;
 
+#[derive(Clone)]
 pub struct EncodingCodec(Codec);
 
 unsafe impl Send for EncodingCodec {}
@@ -109,3 +112,16 @@ impl AsRawPtr<AVCodecContext> for EncodingCodecContext {
     }
 }
 
+impl Clone for EncodingCodecContext {
+    fn clone(&self) -> Self {
+        let mut cloned_codec = self.1.clone();
+        let mut cloned_context = self.0.clone();
+        unsafe {
+            let ret = avcodec_open2(cloned_context.as_mut_ptr(), cloned_codec.as_mut_ptr(), ptr::null_mut());
+            if ret < 0 {
+                panic!("Cloning a DecodingContext failed: ERR CODE - {}", ret);
+            }
+        }
+        EncodingCodecContext(cloned_context, cloned_codec)
+    }
+}

@@ -32,17 +32,6 @@ impl Client {
         let mut video_processing = ClientVideoThreadHandler::new(write_channel);
 
         let mut stream_open = true;
-
-        // let (instr_tx, instr_rx) = channel();
-        // let (tx, rx) = channel::<NetworkPacket>();
-        // let send_video_handle = thread::spawn(|| {
-            // send_video(instr_rx, tx)
-        // });
-        // let write_video_handle = thread::spawn(move || {
-            // for item in rx {
-                // let _ = item.write_to(&mut write_channel);
-            // }
-        // });
         
         while stream_open {
             let results = read_channel.read_next_message();
@@ -58,16 +47,14 @@ impl Client {
                         Ok(s) => {
                             match s.as_ref() {
                                 "START" => {
-                                    println!("Starting recording");
-                                    // instr_tx.send(ClientStatusFlag::StartRecording);
+                                    println!("Starting Recording");
                                     video_processing.start();
                                 },
                                 "STOP" => {
-                                    println!("Stopping recording");
-                                    // instr_tx.send(ClientStatusFlag::StopRecording);
-                                    video_processing.stop(DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), try!(self.stream.try_clone())));
+                                    println!("Stopping Recording");
+                                    video_processing.stop();
                                 },
-                                _ => println!("Received unsupported instruction"),
+                                _ => println!("Received Unsupported Instruction"),
                             }
                         },
                         Err(e) => println!("{}", e),
@@ -75,10 +62,6 @@ impl Client {
                 },
             }            
         }
-
-        // let _ = send_video_handle.join();
-        // let _ = write_video_handle.join();
-        // let _ = read_channel.release().shutdown(Shutdown::Both);
 
         Ok(())
     }
@@ -95,7 +78,7 @@ impl ClientVideoThreadHandler {
         let (instr_tx, instr_rx) = channel();
         let (tx, rx) = channel::<NetworkPacket>();
         let send_video_handle = thread::spawn(|| {
-            println!("{:?}", send_video(instr_rx, tx));
+            println!("Send Video Completion Status: {:?}", send_video(instr_rx, tx));
         });
         let write_video_handle = thread::spawn(move || {
             for item in rx {
@@ -113,20 +96,7 @@ impl ClientVideoThreadHandler {
         self.video_tunnel.send(ClientStatusFlag::StartRecording);
     }
 
-    fn stop(&mut self, mut write_channel: DualMessenger<TcpStream>) {
+    fn stop(&mut self) {
         self.video_tunnel.send(ClientStatusFlag::StopRecording);
-        let (instr_tx, instr_rx) = channel();
-        let (tx, rx) = channel::<NetworkPacket>();
-        let send_video_handle = thread::spawn(|| {
-            println!("{:?}", send_video(instr_rx, tx));
-        });
-        let write_video_handle = thread::spawn(move || {
-            for item in rx {
-                let _ = item.write_to(&mut write_channel);
-            }
-        });
-        self.write_video_handle.replace(write_video_handle).join();
-        self.send_video_handle.set(send_video_handle);
-        self.video_tunnel = instr_tx;
     }
 }

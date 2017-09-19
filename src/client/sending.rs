@@ -1,7 +1,7 @@
 use std::borrow::BorrowMut;
 use std::thread;
 use std::thread::JoinHandle;
-use std::sync::mpsc::{channel, Sender, Receiver};
+use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 
 use std::ffi::CString;
 
@@ -23,13 +23,7 @@ enum PacketMessage {
     Flush,
 }
 
-pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<NetworkPacket>) -> Result<i64, UnsafeError> {
-    let client_flag = try!(message_transfer.recv());
-
-    if client_flag != ClientStatusFlag::StartRecording {
-        return Ok(0);
-    }
-    
+pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<NetworkPacket>) -> Result<i64, UnsafeError> {  
     init_av();
 
     //INPUT ALLOCATION
@@ -40,31 +34,44 @@ pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<N
     let opt = input_context.find_input_stream(0);
 
     if let Some(mut in_str) = opt {
-        let (packet_tx, packet_rx) = channel();
         let context_storage = try!(generate_contexts(&mut in_str));
-
         let output_stream_configuration = StreamConfiguration::from(context_storage.encoding_context.as_ref());
-
         let _ = stream.send(NetworkPacket::JSONPayload(output_stream_configuration));
-        let render_thread_handle = spawn_thread(context_storage, stream, packet_rx);
 
-        let mut packets_read = 0;
+        let mut currently_recording = false;
         loop {
-            if let Ok(msg) = message_transfer.try_recv() {
-                break;
+            let (packet_tx, packet_rx) = channel();
+            let render_thread_handle = spawn_thread(context_storage.clone(), stream.clone(), packet_rx);
+            let mut packets_read = 0;
+            loop {
+                match message_transfer.try_recv() {
+                    Ok(ref m) if m == &ClientStatusFlag::StopRecording => {
+                        currently_recording = false;
+                        break;
+                    },
+                    Ok(ref m) if m == &ClientStatusFlag::StartRecording => {
+                        currently_recording = true;
+                    },
+                    Err(ref e) if !(e == &TryRecvError::Empty) => {
+                        currently_recording = false;
+                        break;
+                    }
+                    _ => {},
+                }
+                if currently_recording {
+                    let mut packet = input_context.read_input();
+                    packet.pts = packets_read;
+                    let _ = packet_tx.send(PacketMessage::Packet(packet));
+                    packets_read = packets_read + 1;                    
+                }
             }
-            let mut packet = input_context.read_input();
-            packet.pts = packets_read;
-            let _ = packet_tx.send(PacketMessage::Packet(packet));
-            packets_read = packets_read + 1;
+            println!("Read {} packets, now sending flush signal", packets_read);
+            let _ = packet_tx.send(PacketMessage::Flush);
+
+            let _ = render_thread_handle.join();
+            currently_recording = false;
         }
-        
-        println!("Read {} packets, now sending flush signal", packets_read);
-        let _ = packet_tx.send(PacketMessage::Flush);
-
-        let _ = render_thread_handle.join();
-
-        Ok(packets_read)
+        Ok(0)
     } else {
         Err(UnsafeError::new(UnsafeErrorKind::OpenInput(1000)))
     }
@@ -83,7 +90,7 @@ fn generate_contexts(stream: &mut Stream) -> Result<CodecStorage, UnsafeError> {
     )?;
 
     // SWS ALLOCATION
-    let sws_context = try!(sws::create_sws_context(480, 640, AV_PIX_FMT_YUYV422, AV_PIX_FMT_YUV420P));
+    let sws_context = try!(SWSContext::new(480, 640, AV_PIX_FMT_YUYV422, AV_PIX_FMT_YUV420P));
     let context_storage: CodecStorage = CodecStorage::new(encoding_context, decoding_context, sws_context);
 
 
@@ -124,7 +131,7 @@ fn spawn_thread(mut context_storage: CodecStorage, stream: Sender<NetworkPacket>
 fn transcode_packet(contexts: &mut CodecStorage, packet: Packet, frame_loc: i64) -> Result<NetworkPacket, UnsafeError> {
     let raw_frame: Frame = try!(vid_processing::decode_packet(contexts.decoding_context.borrow_mut(), &packet));
 
-    let scaled_frame: Frame = try!(sws::change_pixel_format(raw_frame, contexts.sws_context.borrow_mut(), 32, frame_loc));
+    let scaled_frame: Frame = try!(contexts.sws_context.change_pixel_format(raw_frame, 32, frame_loc));
     println!("current frame pts: {}", scaled_frame.pts);
 
     let pkts = try!(vid_processing::encode_frame(contexts.encoding_context.borrow_mut(), scaled_frame));

@@ -21,6 +21,12 @@ impl Frame {
     pub fn null() -> Frame {
         Frame(ptr::null_mut())
     }
+
+    pub fn new() -> Frame {
+        unsafe {
+            Frame(av_frame_alloc())
+        }
+    }
 }
 
 impl AsRawPtr<AVFrame> for Frame {

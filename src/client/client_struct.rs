@@ -36,11 +36,11 @@ impl Client {
         while stream_open {
             let results = read_channel.read_next_message();
             match results {
-                None => {
+                Err(_) => {
                     println!("Server EOS");
                     stream_open = false;
                 },
-                Some(v) => {
+                Ok(v) => {
                     // check to see if anymore instructions have been sent through
                     let curr_data = String::from_utf8(v);
                     match curr_data {

@@ -21,6 +21,7 @@ use networking::NetworkPacket;
 use uuid::Uuid;
 use serde_json;
 use messenger_plus::stream::{DualMessenger};
+use messenger_plus::stream;
 
 use ffmpeg_sys::*;
 
@@ -124,8 +125,8 @@ fn client_write_handler(mut stream: TcpStream, recv: Receiver<RecordingInstructi
     let mut write_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), write_stream);
 
     println!("Attempting to retrieve stream configuration from client {}", stream.peer_addr()?);
-    let results = read_channel.read_next_message().ok_or(io::Error::from(io::ErrorKind::Other));
-    let stream_config = results.map(|x| serde_json::from_slice::<NetworkPacket>(x.as_ref()))?;
+    let results = read_channel.read_next_message().map_err(|x| UnsafeError::from(x))?;
+    let stream_config = serde_json::from_slice::<NetworkPacket>(results.as_ref()).map_err(|x| UnsafeError::from(x))?;
     println!("Retreived stream configuration from client {}", stream.peer_addr()?);
 
     let mut stcth = ServerToClientThreadHandler::new(read_channel);
@@ -174,7 +175,7 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
                     
     println!("Created output video stream");
     try!(format_context.open_video_file(file_path.as_ref()));
-    println!("Opened video file");
+    println!("Opened video file: {}", file_path.as_str());
     try!(format_context.write_video_header());
     println!("Wrote video header");
 
@@ -184,14 +185,11 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
         let results = read_channel.read_next_message();
 
         match results {
-            None => {
+            Err(ref e) if e == &stream::Error::from(stream::ErrorKind::BufferEmpty) => {
                 println!("Read {} messages from stream, now reached EOS.", frames_read);
                 completed_stream = true;
-                try!(format_context.write_null_video_frame());
-                try!(format_context.write_video_trailer());
-                println!("Wrote video trailer and null video frame");
             }
-            Some(v) => {
+            Ok(v) => {
                 frames_read = frames_read + 1;
                 let data_packet_attempt = serde_json::from_slice::<NetworkPacket>(v.as_slice()).map_err(|x| UnsafeError::from(x));
                 match data_packet_attempt {
@@ -210,6 +208,9 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
                     },
                     Err(e) => eprintln!("{:?}, {:?}", e, v.as_slice()),
                 }
+            },
+            Err(e) => {
+                return Err(ServerError::from(UnsafeError::from(e)));
             }
         }
     }

@@ -5,6 +5,7 @@ use serde_json;
 use std::sync::mpsc::{RecvError, TryRecvError};
 use rmp_serde::decode;
 use rmp_serde::encode;
+use messenger_plus::stream;
 
 
 #[derive(Debug)]
@@ -37,6 +38,8 @@ pub enum UnsafeErrorKind {
 
     RecvError(RecvError),
     TryRecvError(TryRecvError),
+
+    ReadMessageError(stream::Error),
 }
 
 impl fmt::Display for UnsafeErrorKind {
@@ -62,6 +65,7 @@ impl fmt::Display for UnsafeErrorKind {
             &UnsafeErrorKind::TryRecvError(ref e)         => e.fmt(fmter),
             &UnsafeErrorKind::RMPSEncodeError(ref e)      => e.fmt(fmter),
             &UnsafeErrorKind::RMPSDecodeError(ref e)      => e.fmt(fmter),
+            &UnsafeErrorKind::ReadMessageError(ref e)     => e.fmt(fmter),
         }
     }
 }
@@ -126,5 +130,11 @@ impl From<encode::Error> for UnsafeError {
 impl From<TryRecvError> for UnsafeError {
     fn from(err: TryRecvError) -> UnsafeError {
         UnsafeError::new(UnsafeErrorKind::TryRecvError(err))
+    }
+}
+
+impl From<stream::Error> for UnsafeError {
+    fn from(err: stream::Error) -> UnsafeError {
+        UnsafeError::new(UnsafeErrorKind::ReadMessageError(err))
     }
 }

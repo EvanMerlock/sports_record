@@ -4,9 +4,11 @@ use std::fmt;
 use std::io;
 use std::net::AddrParseError;
 use std::str;
+use unsafe_code::UnsafeError;
 
 #[derive(Debug)]
 pub enum ClientErrorKind {
+    UnsafeError(UnsafeError),
     IOError(io::Error),
     AddrParseErr(AddrParseError),
 }
@@ -16,6 +18,7 @@ impl fmt::Display for ClientErrorKind {
         match self {
             &ClientErrorKind::IOError(ref err) => err.fmt(fmter),
             &ClientErrorKind::AddrParseErr(ref err) => err.fmt(fmter),
+            &ClientErrorKind::UnsafeError(ref err) => err.fmt(fmter),
         }
     }
 }
@@ -56,5 +59,11 @@ impl From<io::Error> for ClientError {
 impl From<AddrParseError> for ClientError {
     fn from(err: AddrParseError) -> ClientError {
         ClientError::new(ClientErrorKind::AddrParseErr(err))
+    }
+}
+
+impl From<UnsafeError> for ClientError {
+    fn from(err: UnsafeError) -> ClientError {
+        ClientError::new(ClientErrorKind::UnsafeError(err))
     }
 }

@@ -5,6 +5,7 @@ use std::sync::mpsc::{channel, Sender, Receiver};
 use std::cell::Cell;
 
 use messenger_plus::stream::DualMessenger;
+use messenger_plus::stream;
 use client::errors::ClientError;
 use client::{ClientStatusFlag, send_video};
 use networking::NetworkPacket;
@@ -36,7 +37,7 @@ impl Client {
         while stream_open {
             let results = read_channel.read_next_message();
             match results {
-                Err(_) => {
+                Err(ref e) if e == &stream::Error::from(stream::ErrorKind::BufferEmpty) => {
                     println!("Server EOS");
                     stream_open = false;
                 },
@@ -60,6 +61,7 @@ impl Client {
                         Err(e) => println!("{}", e),
                     }
                 },
+                Err(e) => return Err(ClientError::from(UnsafeError::from(e))),
             }            
         }
 

@@ -171,13 +171,15 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
     let pkt_stream = format_context.create_stream(encoding_context);
 
     let stream_index = pkt_stream.index;
-    let stream_timebase = Rational::from(pkt_stream.time_base);
-                    
+                
     println!("Created output video stream");
     try!(format_context.open_video_file(file_path.as_ref()));
     println!("Opened video file: {}", file_path.as_str());
     try!(format_context.write_video_header());
     println!("Wrote video header");
+
+    let stream_timebase = Rational::from(pkt_stream.time_base);
+    println!("Stream TB: {:?}", stream_timebase);
 
     let mut deque: VecDeque<Packet> = VecDeque::new();
 
@@ -216,8 +218,10 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
     }
     println!("Stream completed");
     for mut pkt in deque.drain(0..) {
-        pkt.dts = pkt.pts;
+        //pkt.dts = pkt.pts;
         println!("Recieved packet from client with pts {}", pkt.pts);
+        pkt.rescale_to(Rational::new(1,30), stream_timebase);
+        println!("Rescaled packet to pts {}", pkt.pts);
 
         let _ = format_context.write_video_frame(stream_index, pkt)?;
     }

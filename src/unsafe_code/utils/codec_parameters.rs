@@ -38,9 +38,9 @@ impl CodecParameters {
     }
 }
 
-impl From<&CodecContext> for CodecParameters {
-    fn from(context: &CodecContext) -> CodecParameters {
-        let pars = CodecParameters::new();
+impl<'a> From<&'a CodecContext> for CodecParameters {
+    fn from(context: &'a CodecContext) -> CodecParameters {
+        let mut pars = CodecParameters::new();
         unsafe {
             avcodec_parameters_from_context(pars.as_mut_ptr(), context.as_ptr());
         }
@@ -48,19 +48,26 @@ impl From<&CodecContext> for CodecParameters {
     }
 }
 
+impl From<*mut AVCodecParameters> for CodecParameters {
+    fn from(context: *mut AVCodecParameters) -> CodecParameters {
+        CodecParameters(context)
+    }
+}
+
 impl Clone for CodecParameters {
     fn clone(&self) -> Self { 
-        let pars = CodecParameters::new();
+        let mut pars = CodecParameters::new();
         unsafe {
-            avcodec_parameters_copy(self.as_ptr(), pars.as_mut_ptr());
+            avcodec_parameters_copy(self.0, pars.as_mut_ptr());
         }
+        pars
     }
 }
 
 impl Drop for CodecParameters {
     fn drop(&mut self) {
         unsafe {
-            avcodec_parameters_free(self.0)
+            avcodec_parameters_free(&mut self.0)
         }
     }
 }

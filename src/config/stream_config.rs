@@ -1,6 +1,7 @@
 use std::convert::From;
 
-use unsafe_code::{Rational, PixelFormat, CodecId, CodecContext};
+use unsafe_code::{Rational, PixelFormat, CodecId, CodecContext, CodecParameters};
+use unsafe_code::format::Stream;
 
 use ffmpeg_sys::*;
 
@@ -49,5 +50,11 @@ impl<'a> From<&'a AVCodecContext> for StreamConfiguration {
                 codec_id: CodecId::from(item.codec_id),
                 time_base: Rational::from(item.time_base),
             }
+    }
+}
+
+impl <'a> From<&'a Stream> for StreamConfiguration {
+    fn from(item: &'a Stream) -> StreamConfiguration {
+        StreamConfiguration::from(&**item)
     }
 }

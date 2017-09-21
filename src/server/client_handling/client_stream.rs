@@ -13,9 +13,9 @@ use std::ffi::CString;
 use server::ServerError;
 use config::stream_config::StreamConfiguration;
 
-use unsafe_code::vid_processing;
 use unsafe_code::format::{FormatContext, InputContext, OutputContext};
 use unsafe_code::{Rational, CodecId, Packet, DataPacket, UnsafeError, UnsafeErrorKind};
+use unsafe_code::{EncodingCodecContext, DecodingCodecContext};
 use networking::NetworkPacket;
 
 use uuid::Uuid;
@@ -167,7 +167,7 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
     let file_path: String = String::from("output/video_") + &Uuid::new_v4().simple().to_string() + ".mp4";
     let mut format_context: OutputContext = FormatContext::new_output(CString::new(file_path.as_str()).unwrap());
     println!("Created output context");
-    let encoding_context = try!(vid_processing::create_encoding_context(CodecId::from(AV_CODEC_ID_H264), 480, 640, Rational::new(1, 30), 12, 0));
+    let encoding_context = try!(EncodingCodecContext::create_encoding_context(CodecId::from(AV_CODEC_ID_H264), 480, 640, Rational::new(1, 30), 12, 0));
     let pkt_stream = format_context.create_stream(encoding_context);
 
     let stream_index = pkt_stream.index;

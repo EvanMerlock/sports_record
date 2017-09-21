@@ -8,11 +8,10 @@ use std::ffi::CString;
 use client::ClientStatusFlag;
 
 use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational, CodecId, Frame};
-use unsafe_code::vid_processing;
 use unsafe_code::format::{FormatContext, InputContext, Stream};
 use unsafe_code::sws;
 use unsafe_code::sws::SWSContext;
-use unsafe_code::{Packet, DataPacket};
+use unsafe_code::{Packet, DataPacket, EncodingCodecContext, DecodingCodecContext};
 use config::stream_config::StreamConfiguration;
 use networking::NetworkPacket;
 
@@ -35,7 +34,7 @@ pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<N
 
     if let Some(mut in_str) = opt {
         let context_storage = try!(generate_contexts(&mut in_str));
-        let output_stream_configuration = StreamConfiguration::from(context_storage.encoding_context.as_ref());
+        let output_stream_configuration = StreamConfiguration::from(<EncodingCodecContext as AsRef<AVCodecContext>>::as_ref(&context_storage.encoding_context));
         let _ = stream.send(NetworkPacket::JSONPayload(output_stream_configuration));
 
         let mut currently_recording = false;
@@ -80,8 +79,11 @@ pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<N
 
 fn generate_contexts(stream: &mut Stream) -> Result<CodecStorage, UnsafeError> {
     //CODEC ALLOCATION
-    let decoding_context = try!(vid_processing::create_decoding_context_from_av_stream(stream));
-    let encoding_context = vid_processing::create_encoding_context(
+    let decoding_context = try!(DecodingCodecContext::create_decoding_context_from_av_stream(stream));
+
+    let stream_configuration = StreamConfiguration::from(stream as &_);
+
+    let encoding_context = EncodingCodecContext::create_encoding_context(
         CodecId::from(AV_CODEC_ID_H264), 
         480, 640, 
         Rational::new(1, 30), 
@@ -115,7 +117,7 @@ fn spawn_thread(mut context_storage: CodecStorage, stream: Sender<NetworkPacket>
             }
         }
         println!("flushing packets");
-        let null_pkt_attempt = vid_processing::encode_null_frame(context_storage.encoding_context.borrow_mut());
+        let null_pkt_attempt = context_storage.encoding_context.encode_null_frame();
         if let Ok(null_pkt) = null_pkt_attempt {
             println!("sending null pkt of len {}", null_pkt.len());
             let _ = stream.send(NetworkPacket::PacketStream(null_pkt.into_iter().map(|x: Packet| DataPacket::from(x)).collect()));
@@ -129,11 +131,11 @@ fn spawn_thread(mut context_storage: CodecStorage, stream: Sender<NetworkPacket>
 }
 
 fn transcode_packet(contexts: &mut CodecStorage, packet: Packet, frame_loc: i64) -> Result<NetworkPacket, UnsafeError> {
-    let raw_frame: Frame = try!(vid_processing::decode_packet(contexts.decoding_context.borrow_mut(), &packet));
+    let raw_frame: Frame = try!(contexts.decoding_context.decode_packet(&packet));
 
     let scaled_frame: Frame = try!(contexts.sws_context.change_pixel_format(raw_frame, 32, frame_loc));
     println!("current frame pts: {}", scaled_frame.pts);
 
-    let pkts = try!(vid_processing::encode_frame(contexts.encoding_context.borrow_mut(), scaled_frame));
+    let pkts = try!(contexts.encoding_context.encode_frame(scaled_frame));
     Ok(NetworkPacket::PacketStream(pkts.into_iter().map(|x: Packet| DataPacket::from(x)).collect()))
 }

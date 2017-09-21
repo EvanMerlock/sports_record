@@ -26,7 +26,7 @@ impl CodecContext {
         }
     }
 
-    pub fn open_decoding(mut self, codec: DecodingCodec) -> Result<DecodingCodecContext, UnsafeError> {
+    fn open_decoding(mut self, codec: DecodingCodec) -> Result<DecodingCodecContext, UnsafeError> {
         unsafe {
             let ret = avcodec_open2(self.as_mut_ptr(), codec.as_ptr(), ptr::null_mut());
             if ret < 0 {
@@ -36,7 +36,7 @@ impl CodecContext {
         }
     }
 
-    pub fn open_encoding(mut self, codec: EncodingCodec) -> Result<EncodingCodecContext, UnsafeError> {
+    fn open_encoding(mut self, codec: EncodingCodec) -> Result<EncodingCodecContext, UnsafeError> {
         unsafe {
             let ret = avcodec_open2(self.as_mut_ptr(), codec.as_ptr(), ptr::null_mut());
             if ret < 0 {

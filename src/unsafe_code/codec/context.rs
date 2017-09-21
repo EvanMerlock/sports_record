@@ -4,7 +4,7 @@ use std::ops::{Drop, Deref, DerefMut};
 
 use std::ptr;
 
-use unsafe_code::{UnsafeError, UnsafeErrorKind, Codec, AsRawPtr};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, Codec, AsRawPtr, CodecParameters};
 use unsafe_code::codec::{EncodingCodec, DecodingCodec, EncodingCodecContext, DecodingCodecContext};
 
 use ffmpeg_sys::*;
@@ -23,6 +23,17 @@ impl CodecContext {
     pub fn new_codec_based_context<T: AsRawPtr<AVCodec> + Sized>(codec: &T) -> CodecContext {
         unsafe {
             CodecContext(avcodec_alloc_context3(codec.as_ptr()))
+        }
+    }
+
+    pub fn load_parameters_from_codec_parameters<T: AsRawPtr<AVCodecParameters>>(&mut self, params: &T) -> Result<(), i32> {
+        unsafe {
+            let ret = avcodec_parameters_to_context(self.as_mut_ptr(), params.as_ptr());
+            if ret < 0 {
+                Err(ret)
+            } else {
+                Ok(())
+            }
         }
     }
 }

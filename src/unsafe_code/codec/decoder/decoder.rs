@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 use std::ptr;
 use std::ffi::CString;
 
-use unsafe_code::{AsRawPtr, UnsafeError, CodecId, UnsafeErrorKind, Frame};
+use unsafe_code::{AsRawPtr, UnsafeError, CodecId, UnsafeErrorKind, Frame, CodecParameters};
 use unsafe_code::format::Stream;
 use unsafe_code::codec::{CodecContext, Codec};
 
@@ -74,6 +74,8 @@ impl DecodingCodecContext {
         if ret < 0 {
             return Err(UnsafeError::new(UnsafeErrorKind::OpenDecoder(ret)));
         }
+
+        decoding_context.0.load_parameters_from_codec_parameters(&CodecParameters::from(stream_config.codecpar)).map_err(|x| UnsafeError::new(UnsafeErrorKind::OpenDecoder(x)))?;
 
         {
             let internal_ref = <DecodingCodecContext as AsMut<AVCodecContext>>::as_mut(&mut decoding_context);

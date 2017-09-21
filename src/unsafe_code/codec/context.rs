@@ -25,26 +25,6 @@ impl CodecContext {
             CodecContext(avcodec_alloc_context3(codec.as_ptr()))
         }
     }
-
-    fn open_decoding(mut self, codec: DecodingCodec) -> Result<DecodingCodecContext, UnsafeError> {
-        unsafe {
-            let ret = avcodec_open2(self.as_mut_ptr(), codec.as_ptr(), ptr::null_mut());
-            if ret < 0 {
-                return Err(UnsafeError::new(UnsafeErrorKind::OpenDecoder(ret)));
-            }
-            Ok(DecodingCodecContext::new(codec, self))
-        }
-    }
-
-    fn open_encoding(mut self, codec: EncodingCodec) -> Result<EncodingCodecContext, UnsafeError> {
-        unsafe {
-            let ret = avcodec_open2(self.as_mut_ptr(), codec.as_ptr(), ptr::null_mut());
-            if ret < 0 {
-                return Err(UnsafeError::new(UnsafeErrorKind::OpenEncoder(ret)));
-            }
-            Ok(EncodingCodecContext::new(codec, self))
-        }
-    }
 }
 
 impl AsRawPtr<AVCodecContext> for CodecContext {

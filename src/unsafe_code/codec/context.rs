@@ -4,6 +4,7 @@ use std::ops::{Drop, Deref, DerefMut};
 
 use std::ptr;
 
+use config::stream_config::{StreamConfiguration, CodecVariant};
 use unsafe_code::{UnsafeError, UnsafeErrorKind, Codec, AsRawPtr, CodecParameters};
 use unsafe_code::codec::{EncodingCodec, DecodingCodec, EncodingCodecContext, DecodingCodecContext};
 
@@ -36,6 +37,27 @@ impl CodecContext {
             }
         }
     }
+
+    pub fn new_from_stream_configuration(params: &StreamConfiguration) -> CodecContext {
+        unsafe {
+            let codec: *const AVCodec = match params.codec_id {
+                CodecVariant::Encoding(e) => Codec::new_encoder(e).as_ptr(),
+                CodecVariant::Decoding(e) => Codec::new_decoder(e).as_ptr(),
+            };
+            let context_ptr = avcodec_alloc_context3(codec);
+            let mut context = CodecContext::from(context_ptr);
+            {
+                let internal_ref: &mut AVCodecContext = <CodecContext as AsMut<AVCodecContext>>::as_mut(&mut context);
+                internal_ref.height = params.height;
+                internal_ref.width = params.width;
+                internal_ref.time_base = params.time_base.into();
+                internal_ref.gop_size = params.gop_size;
+                internal_ref.max_b_frames = params.max_b_frames;
+                internal_ref.pix_fmt = *params.pix_fmt;
+            }
+            context
+        }
+    }
 }
 
 impl AsRawPtr<AVCodecContext> for CodecContext {
@@ -56,16 +78,12 @@ impl From<*mut AVCodecContext> for CodecContext {
 
 impl Clone for CodecContext {
     fn clone(&self) -> Self {
-        let mut ctx = CodecContext::new();
-        ctx.clone_from(self);
-
-        ctx
-    }
-
-    fn clone_from(&mut self, source: &Self) {
+        let mut ctx = CodecContext::new_from_stream_configuration(&StreamConfiguration::from(self));
         unsafe {
-            avcodec_copy_context(self.as_mut_ptr(), source.as_ptr());
+            let mut codec_pars = CodecParameters::from(self);
+            avcodec_parameters_to_context(ctx.as_mut_ptr(), codec_pars.as_mut_ptr());
         }
+        ctx
     }
 }
 
@@ -106,7 +124,6 @@ impl AsMut<AVCodecContext> for CodecContext {
 impl Drop for CodecContext {
     fn drop(&mut self) {
         unsafe {
-            println!("dropping codec context");
             avcodec_free_context(&mut self.as_mut_ptr());
         }
     }

@@ -7,7 +7,6 @@ use unsafe_code::codec::{EncodingCodec, DecodingCodec};
 
 use ffmpeg_sys::*;
 
-#[derive(Clone)]
 pub struct Codec(*mut AVCodec);
 
 unsafe impl Send for Codec {}
@@ -24,6 +23,22 @@ impl Codec {
         unsafe {
             DecodingCodec::from(Codec(avcodec_find_decoder(*id)))
         }
+    }
+
+    pub fn is_encoder(&self) -> bool {
+		unsafe {
+			av_codec_is_encoder(self.as_ptr()) != 0
+		}
+	}
+
+	pub fn is_decoder(&self) -> bool {
+		unsafe {
+			av_codec_is_decoder(self.as_ptr()) != 0
+		}
+    }
+
+    pub fn get_codec_id(&self) -> CodecId {
+        CodecId::from(self.as_ref().id)
     }
 }
 
@@ -49,12 +64,22 @@ impl AsMut<AVCodec> for Codec {
     }
 }
 
-impl AsRawPtr<AVCodec> for Codec{
+impl AsRawPtr<AVCodec> for Codec {
     fn as_ptr(&self) -> *const AVCodec {
         self.0 as *const _
     }
 
     fn as_mut_ptr(&mut self) -> *mut AVCodec {
         self.0
+    }
+}
+
+impl Clone for Codec {
+    fn clone(&self) -> Self {
+        if self.is_encoder() {
+            Codec::from(Codec::new_encoder(self.get_codec_id()).as_mut_ptr())
+        } else {
+            Codec::from(Codec::new_decoder(self.get_codec_id()).as_mut_ptr())
+        }
     }
 }

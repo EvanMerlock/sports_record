@@ -36,13 +36,19 @@ impl CodecParameters {
 
         CodecParameters(codecpars_ptr)
     }
+
+    pub fn insert_into_context(&mut self, context: &mut CodecContext) -> i32 {
+        unsafe {
+            avcodec_parameters_to_context(context.as_mut_ptr(), self.as_mut_ptr())
+        }
+    }
 }
 
 impl<'a> From<&'a CodecContext> for CodecParameters {
     fn from(context: &'a CodecContext) -> CodecParameters {
         let mut pars = CodecParameters::new();
         unsafe {
-            avcodec_parameters_from_context(pars.as_mut_ptr(), context.as_ptr());
+            let ret = avcodec_parameters_from_context(pars.as_mut_ptr(), context.as_ptr());
         }
         pars
     }

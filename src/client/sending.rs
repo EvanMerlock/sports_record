@@ -85,14 +85,13 @@ fn generate_contexts(stream: &mut Stream) -> Result<CodecStorage, UnsafeError> {
 
     let encoding_context = EncodingCodecContext::create_encoding_context(
         CodecId::from(AV_CODEC_ID_H264), 
-        480, 640, 
-        Rational::new(1, 30), 
-        decoding_context.as_ref().gop_size, 
-        decoding_context.as_ref().max_b_frames
+        stream_configuration.height, stream_configuration.width, 
+        Rational::new(1, 30),
+        0, 0
     )?;
 
     // SWS ALLOCATION
-    let sws_context = try!(SWSContext::new(480, 640, AV_PIX_FMT_YUYV422, AV_PIX_FMT_YUV420P));
+    let sws_context = try!(SWSContext::new(stream_configuration.height, stream_configuration.width, *stream_configuration.pix_fmt, AV_PIX_FMT_YUV420P));
     let context_storage: CodecStorage = CodecStorage::new(encoding_context, decoding_context, sws_context);
 
 

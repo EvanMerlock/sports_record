@@ -56,6 +56,18 @@ impl DecodingCodecContext {
 
     pub fn open(&mut self) -> Result<(), UnsafeError> {
         unsafe {
+            if self.as_ref().codec_id == AV_CODEC_ID_H264 {
+                let preset_string = CString::new("preset").unwrap();
+                let ultrafast = CString::new("ultrafast").unwrap();
+                let crf_string = CString::new("crf").unwrap();
+                let crf_setting = CString::new("28").unwrap();
+                let ret = av_opt_set(self.as_mut_void_ptr(), preset_string.as_ptr(), ultrafast.as_ptr(), 0);
+                let ret2 = av_opt_set(self.as_mut_void_ptr(), crf_string.as_ptr(), crf_setting.as_ptr(), 0);
+                if ret < 0 || ret2 < 0 {
+                    println!("ret 1: {} and ret 2: {}", ret, ret2);
+                }
+            }
+
             let ret = avcodec_open2(self.0.as_mut_ptr(), self.1.as_ptr(), ptr::null_mut());
             if ret < 0 {
                 return Err(UnsafeError::new(UnsafeErrorKind::OpenDecoder(ret)));
@@ -77,13 +89,10 @@ impl DecodingCodecContext {
 
         decoding_context.0.load_parameters_from_codec_parameters(&CodecParameters::from(stream_config.codecpar)).map_err(|x| UnsafeError::new(UnsafeErrorKind::OpenDecoder(x)))?;
 
-        {
-            let internal_ref = <DecodingCodecContext as AsMut<AVCodecContext>>::as_mut(&mut decoding_context);
-            if internal_ref.codec_id == AV_CODEC_ID_H264 {
-                av_opt_set((internal_ref as *mut AVCodecContext) as *mut libc::c_void, CString::new("preset").unwrap().as_ptr(), CString::new("ultrafast").unwrap().as_ptr(), 0);
-                av_opt_set((internal_ref as *mut AVCodecContext) as *mut libc::c_void, CString::new("crf").unwrap().as_ptr(), CString::new("28").unwrap().as_ptr(), 0);
-            }
-        }
+        let codec_id = {
+            let internal_ref = <DecodingCodecContext as AsRef<AVCodecContext>>::as_ref(&decoding_context);
+            internal_ref.codec_id
+        };
 
         try!(decoding_context.open());
 
@@ -144,12 +153,8 @@ impl Clone for DecodingCodecContext {
     fn clone(&self) -> Self {
         let mut cloned_codec = self.1.clone();
         let mut cloned_context = self.0.clone();
-        unsafe {
-            let ret = avcodec_open2(cloned_context.as_mut_ptr(), cloned_codec.as_mut_ptr(), ptr::null_mut());
-            if ret < 0 {
-                panic!("Cloning a DecodingContext failed: ERR CODE - {}", ret);
-            }
-        }
-        DecodingCodecContext(cloned_context, cloned_codec)
+        let mut cloned_codec_context = DecodingCodecContext(cloned_context, cloned_codec);
+        cloned_codec_context.open().expect("Failed to clone DecodingContext");
+        cloned_codec_context
     }
 }

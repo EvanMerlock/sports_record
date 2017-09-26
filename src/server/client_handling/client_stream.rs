@@ -127,9 +127,14 @@ fn client_write_handler(mut stream: TcpStream, recv: Receiver<RecordingInstructi
     println!("Attempting to retrieve stream configuration from client {}", stream.peer_addr()?);
     let results = read_channel.read_next_message().map_err(|x| UnsafeError::from(x))?;
     let stream_config = serde_json::from_slice::<NetworkPacket>(results.as_ref()).map_err(|x| UnsafeError::from(x))?;
+    let unwrapped_config = match stream_config {
+        NetworkPacket::JSONPayload(e) => e,
+        _ => return Err(ServerError::from(UnsafeError::new(UnsafeErrorKind::OpenInput(1000)))),
+    };
     println!("Retreived stream configuration from client {}", stream.peer_addr()?);
+    println!("{:?}", unwrapped_config);
 
-    let mut stcth = ServerToClientThreadHandler::new(read_channel);
+    let mut stcth = ServerToClientThreadHandler::new(unwrapped_config, read_channel);
 
     while !currently_cleaning {
         loop {
@@ -157,7 +162,7 @@ fn client_write_handler(mut stream: TcpStream, recv: Receiver<RecordingInstructi
     Ok(())
 }
 
-fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receiver<TranslatedRecordingInstructions>) -> Result<i32, ServerError> {
+fn receive_video(conf: StreamConfiguration, mut read_channel: DualMessenger<TcpStream>, instr_recv: Receiver<TranslatedRecordingInstructions>) -> Result<i32, ServerError> {
 
     let _ = try!(instr_recv.recv());
 
@@ -167,7 +172,7 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
     let file_path: String = String::from("output/video_") + &Uuid::new_v4().simple().to_string() + ".mp4";
     let mut format_context: OutputContext = FormatContext::new_output(CString::new(file_path.as_str()).unwrap());
     println!("Created output context");
-    let encoding_context = try!(EncodingCodecContext::create_encoding_context(CodecId::from(AV_CODEC_ID_H264), 480, 640, Rational::new(1, 30), 12, 0));
+    let encoding_context = try!(EncodingCodecContext::create_encoding_context(CodecId::from(AV_CODEC_ID_H264), conf.height, conf.width, conf.time_base, conf.gop_size, conf.max_b_frames));
     let pkt_stream = format_context.create_stream(encoding_context);
 
     let stream_index = pkt_stream.index;
@@ -179,10 +184,6 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
     println!("Wrote video header");
 
     let stream_timebase = Rational::from(pkt_stream.time_base);
-    println!("Stream TB: {:?}", stream_timebase);
-
-    let mut deque: VecDeque<Packet> = VecDeque::new();
-
     while !completed_stream {
         let results = read_channel.read_next_message();
 
@@ -198,8 +199,13 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
                     Ok(network_packet) => {
                         match network_packet {
                             NetworkPacket::PacketStream(pkts) => {
-                                deque.extend(pkts.into_iter().map(|x| Packet::from(x)));
-                            }
+                                for mut pkt in pkts.into_iter().map(|x| Packet::from(x)) {
+                                    println!("Recieved packet from client with pts {}", pkt.pts);
+                                    pkt.rescale_to(Rational::new(1,30), stream_timebase);
+                                    //pkt.dts = pkt.pts;
+                                    let _ = format_context.write_video_frame(stream_index, pkt)?;
+                                }
+                            },
                             NetworkPacket::PayloadEnd => {
                                 println!("Received EOP Indicator");
                                 completed_stream = true;
@@ -215,15 +221,6 @@ fn receive_video(mut read_channel: DualMessenger<TcpStream>, instr_recv: Receive
                 return Err(ServerError::from(UnsafeError::from(e)));
             }
         }
-    }
-    println!("Stream completed");
-    for mut pkt in deque.drain(0..) {
-        //pkt.dts = pkt.pts;
-        println!("Recieved packet from client with pts {}", pkt.pts);
-        pkt.rescale_to(Rational::new(1,30), stream_timebase);
-        println!("Rescaled packet to pts {}", pkt.pts);
-
-        let _ = format_context.write_video_frame(stream_index, pkt)?;
     }
     println!("Current read ended, {} frames read.", frames_read);
     try!(format_context.write_null_video_frame());
@@ -242,18 +239,20 @@ struct ServerToClientThreadHandler {
     rec_vid_thread: Cell<JoinHandle<Result<i32, ServerError>>>,
     currently_recv: bool,
     instr_tun: Sender<TranslatedRecordingInstructions>,
+    conf: StreamConfiguration,
 }
 
 impl ServerToClientThreadHandler {
-    fn new(mut read_channel: DualMessenger<TcpStream>) -> ServerToClientThreadHandler {
+    fn new(conf: StreamConfiguration, mut read_channel: DualMessenger<TcpStream>) -> ServerToClientThreadHandler {
         let (send, recv) = channel();
         let rec_vid_thread = thread::spawn(move || {
-            receive_video(read_channel, recv)
+            receive_video(conf, read_channel, recv)
         });
         ServerToClientThreadHandler {
             rec_vid_thread: Cell::new(rec_vid_thread),
             currently_recv: false,
             instr_tun: send,
+            conf: conf,
         }
     }
 
@@ -263,8 +262,9 @@ impl ServerToClientThreadHandler {
 
     fn stop(&mut self, mut read_channel: DualMessenger<TcpStream>) {
         let (instr_tx, instr_rx) = channel();
+        let pass_conf = self.conf.clone();
         let rec_vid_thread = thread::spawn(move || {
-            receive_video(read_channel, instr_rx)
+            receive_video(pass_conf, read_channel, instr_rx)
         });
         self.instr_tun = instr_tx;
         println!("{:?}", self.rec_vid_thread.replace(rec_vid_thread).join());

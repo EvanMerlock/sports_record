@@ -8,7 +8,6 @@ use std::sync::mpsc::RecvError;
 
 use unsafe_code::UnsafeError;
 
-use rmp_serde::decode;
 use rusqlite;
 
 #[derive(Debug)]

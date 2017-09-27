@@ -3,8 +3,6 @@ use std::fmt;
 use std::io;
 use serde_json;
 use std::sync::mpsc::{RecvError, TryRecvError};
-use rmp_serde::decode;
-use rmp_serde::encode;
 use messenger_plus::stream;
 
 
@@ -33,8 +31,6 @@ pub enum UnsafeErrorKind {
     WriteVideoFrameError(i32),
 
     SerdeJsonError(serde_json::Error),
-    RMPSDecodeError(decode::Error),
-    RMPSEncodeError(encode::Error),
 
     RecvError(RecvError),
     TryRecvError(TryRecvError),
@@ -63,8 +59,6 @@ impl fmt::Display for UnsafeErrorKind {
             &UnsafeErrorKind::SerdeJsonError(ref e)       => write!(fmter, "A Serde Error occured: {}", e),
             &UnsafeErrorKind::RecvError(ref e)            => e.fmt(fmter),
             &UnsafeErrorKind::TryRecvError(ref e)         => e.fmt(fmter),
-            &UnsafeErrorKind::RMPSEncodeError(ref e)      => e.fmt(fmter),
-            &UnsafeErrorKind::RMPSDecodeError(ref e)      => e.fmt(fmter),
             &UnsafeErrorKind::ReadMessageError(ref e)     => e.fmt(fmter),
         }
     }
@@ -112,18 +106,6 @@ impl From<serde_json::Error> for UnsafeError {
 impl From<RecvError> for UnsafeError {
     fn from(err: RecvError) -> UnsafeError {
         UnsafeError::new(UnsafeErrorKind::RecvError(err))
-    }
-}
-
-impl From<decode::Error> for UnsafeError {
-    fn from(err: decode::Error) -> UnsafeError {
-        UnsafeError::new(UnsafeErrorKind::RMPSDecodeError(err))
-    }
-}
-
-impl From<encode::Error> for UnsafeError {
-    fn from(err: encode::Error) -> UnsafeError {
-        UnsafeError::new(UnsafeErrorKind::RMPSEncodeError(err))
     }
 }
 

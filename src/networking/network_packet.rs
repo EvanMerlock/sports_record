@@ -1,13 +1,11 @@
 use std::convert::From;
 use std::io::Write;
-use std::fmt;
 
 use config::stream_config::StreamConfiguration;
 
 use unsafe_code::DataPacket;
 use unsafe_code::UnsafeError;
 
-use serde::Serialize;
 use serde_json;
 
 #[derive(Debug, Serialize, Deserialize)]

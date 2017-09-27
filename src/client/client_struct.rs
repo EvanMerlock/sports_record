@@ -1,7 +1,7 @@
-use std::net::{SocketAddr, TcpStream, Shutdown};
+use std::net::{SocketAddr, TcpStream};
 use std::thread;
 use std::thread::JoinHandle;
-use std::sync::mpsc::{channel, Sender, Receiver};
+use std::sync::mpsc::{channel, Sender};
 use std::cell::Cell;
 
 use messenger_plus::stream::DualMessenger;
@@ -26,10 +26,10 @@ impl Client {
     }
 
     pub fn stream_handler(&mut self) -> Result<(), ClientError> {
-        let mut read_stream = try!(self.stream.try_clone());
-        let mut write_stream = try!(self.stream.try_clone());
+        let read_stream = try!(self.stream.try_clone());
+        let write_stream = try!(self.stream.try_clone());
         let mut read_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), read_stream);
-        let mut write_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), write_stream);
+        let write_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), write_stream);
         let mut video_processing = ClientVideoThreadHandler::new(write_channel);
 
         let mut stream_open = true;
@@ -95,10 +95,10 @@ impl ClientVideoThreadHandler {
     }
 
     fn start(&mut self) {
-        self.video_tunnel.send(ClientStatusFlag::StartRecording);
+        let _ = self.video_tunnel.send(ClientStatusFlag::StartRecording);
     }
 
     fn stop(&mut self) {
-        self.video_tunnel.send(ClientStatusFlag::StopRecording);
+        let _ = self.video_tunnel.send(ClientStatusFlag::StopRecording);
     }
 }

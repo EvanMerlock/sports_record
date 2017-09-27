@@ -61,7 +61,7 @@ impl SWSContext {
         Ok(Frame::from(scaled_frame))
     }
 
-    pub fn change_pixel_format(&mut self, mut old_frame: Frame, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
+    pub fn change_pixel_format(&mut self, old_frame: Frame, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
         unsafe {
             match self.scale_using_sws(old_frame, align, pts) {
                 Ok(frame) => Ok(frame),

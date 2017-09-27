@@ -5,7 +5,6 @@ use iron::prelude::*;
 use iron::headers::ContentType;
 use iron::status;
 use router::Router;
-use iron::mime::{Mime, TopLevel, SubLevel};
 
 pub fn home_handler(_: &mut Request) -> IronResult<Response> {
     let mut res: Response = Response::with((status::Ok, body_writer::VideoHttpWriter::new()));

@@ -2,7 +2,7 @@ use std::convert::{AsMut, AsRef};
 
 use ffmpeg_sys::*;
 
-use unsafe_code::{AsRawPtr, UnsafeError, UnsafeErrorKind, CodecContext};
+use unsafe_code::{AsRawPtr, CodecContext};
 
 pub struct CodecParameters(*mut AVCodecParameters);
 
@@ -48,7 +48,7 @@ impl<'a> From<&'a CodecContext> for CodecParameters {
     fn from(context: &'a CodecContext) -> CodecParameters {
         let mut pars = CodecParameters::new();
         unsafe {
-            let ret = avcodec_parameters_from_context(pars.as_mut_ptr(), context.as_ptr());
+            let _ = avcodec_parameters_from_context(pars.as_mut_ptr(), context.as_ptr());
         }
         pars
     }

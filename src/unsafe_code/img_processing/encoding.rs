@@ -68,7 +68,7 @@ unsafe fn encode_jpeg_frame(codec: &mut AVCodecContext, frame: &AVFrame, mut fil
     Ok(())
 }
 
-pub fn write_frame_to_jpeg(codec: &mut AVCodecContext, frame: &AVFrame, mut file: File) -> Result<(), UnsafeError> {
+pub fn write_frame_to_jpeg(codec: &mut AVCodecContext, frame: &AVFrame, file: File) -> Result<(), UnsafeError> {
     unsafe {
         encode_jpeg_frame(codec, frame, file)
     }

@@ -141,17 +141,13 @@ impl From<DataPacket> for Packet {
 
 impl AsRef<AVPacket> for Packet {
     fn as_ref(&self) -> &AVPacket {
-        unsafe {
-            &self.0
-        }
+        &self.0
     }
 }
 
 impl AsMut<AVPacket> for Packet {
     fn as_mut(&mut self) -> &mut AVPacket {
-        unsafe {
-            &mut self.0
-        }
+        &mut self.0
     }
 }
 

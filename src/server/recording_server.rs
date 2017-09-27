@@ -1,10 +1,9 @@
 use std::net::{TcpListener, SocketAddr};
 use std::thread;
 use std::result::Result;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{Sender};
 
 use server::client_handling::*;
 use server::web;

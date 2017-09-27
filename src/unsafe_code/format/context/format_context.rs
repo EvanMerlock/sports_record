@@ -1,4 +1,3 @@
-use std::ops::{Deref, DerefMut};
 use std::convert::From;
 
 use std::ptr;

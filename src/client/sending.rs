@@ -1,4 +1,3 @@
-use std::borrow::BorrowMut;
 use std::thread;
 use std::thread::JoinHandle;
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
@@ -9,7 +8,6 @@ use client::ClientStatusFlag;
 
 use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational, CodecId, Frame};
 use unsafe_code::format::{FormatContext, InputContext, Stream};
-use unsafe_code::sws;
 use unsafe_code::sws::SWSContext;
 use unsafe_code::{Packet, DataPacket, EncodingCodecContext, DecodingCodecContext};
 use config::stream_config::StreamConfiguration;
@@ -22,7 +20,7 @@ enum PacketMessage {
     Flush,
 }
 
-pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<NetworkPacket>) -> Result<i64, UnsafeError> {  
+pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<NetworkPacket>) -> Result<(), UnsafeError> {  
     init_av();
 
     //INPUT ALLOCATION
@@ -45,14 +43,12 @@ pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<N
             loop {
                 match message_transfer.try_recv() {
                     Ok(ref m) if m == &ClientStatusFlag::StopRecording => {
-                        currently_recording = false;
                         break;
                     },
                     Ok(ref m) if m == &ClientStatusFlag::StartRecording => {
                         currently_recording = true;
                     },
                     Err(ref e) if !(e == &TryRecvError::Empty) => {
-                        currently_recording = false;
                         break;
                     }
                     _ => {},
@@ -64,13 +60,13 @@ pub fn send_video(message_transfer: Receiver<ClientStatusFlag>, stream: Sender<N
                     packets_read = packets_read + 1;                    
                 }
             }
+            currently_recording = false;
             println!("Read {} packets, now sending flush signal", packets_read);
             let _ = packet_tx.send(PacketMessage::Flush);
 
             let _ = render_thread_handle.join();
-            currently_recording = false;
         }
-        Ok(0)
+        Ok(())
     } else {
         Err(UnsafeError::new(UnsafeErrorKind::OpenInput(1000)))
     }

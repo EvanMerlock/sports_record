@@ -1,14 +1,10 @@
 use std::marker::{Send, Sync};
 use std::convert::{From};
-use std::mem;
-use std::ops::{Drop, Deref, DerefMut};
-use std::io::Write;
+use std::ops::{Deref, DerefMut};
 
-use std::slice::{from_raw_parts_mut, from_raw_parts};
 use std::ptr;
 
-use unsafe_code::{Rational, AsRawPtr};
-use unsafe_code::packet::DataPacket;
+use unsafe_code::AsRawPtr;
 
 use ffmpeg_sys::*;
 
@@ -72,5 +68,13 @@ impl Deref for Frame {
 impl DerefMut for Frame {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_mut()
+    }
+}
+
+impl Drop for Frame {
+    fn drop(&mut self) {
+        unsafe {
+            av_frame_free(&mut self.0)
+        }
     }
 }

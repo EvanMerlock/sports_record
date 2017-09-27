@@ -25,7 +25,7 @@ pub fn create_sws_context(height: i32, width: i32, in_pix_fmt: AVPixelFormat, ou
     }
 }
 
-unsafe fn scale_using_sws(mut old_frame: Frame, sws_context: &mut SWSContext, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
+unsafe fn scale_using_sws(old_frame: Frame, sws_context: &mut SWSContext, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
     let scaled_frame = av_frame_alloc();
     (*scaled_frame).width = old_frame.width;
     (*scaled_frame).height = old_frame.height;

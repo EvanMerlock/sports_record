@@ -5,8 +5,7 @@ use std::ops::{Drop, Deref, DerefMut};
 use std::ptr;
 
 use config::stream_config::{StreamConfiguration, CodecVariant};
-use unsafe_code::{UnsafeError, UnsafeErrorKind, Codec, AsRawPtr, CodecParameters};
-use unsafe_code::codec::{EncodingCodec, DecodingCodec, EncodingCodecContext, DecodingCodecContext};
+use unsafe_code::{Codec, AsRawPtr, CodecParameters};
 
 use ffmpeg_sys::*;
 

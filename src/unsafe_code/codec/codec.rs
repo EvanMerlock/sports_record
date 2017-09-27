@@ -1,6 +1,5 @@
 use std::marker::{Send};
 use std::convert::{From};
-use std::ops::{Deref, DerefMut};
 
 use unsafe_code::{CodecId, AsRawPtr};
 use unsafe_code::codec::{EncodingCodec, DecodingCodec};

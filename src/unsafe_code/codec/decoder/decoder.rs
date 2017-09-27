@@ -1,6 +1,5 @@
 use std::marker::{Send};
 use std::convert::{From, AsRef, AsMut};
-use std::ops::{Deref, DerefMut};
 
 use std::ptr;
 use std::ffi::CString;
@@ -9,7 +8,6 @@ use unsafe_code::{AsRawPtr, UnsafeError, CodecId, UnsafeErrorKind, Frame, CodecP
 use unsafe_code::format::Stream;
 use unsafe_code::codec::{CodecContext, Codec};
 
-use libc;
 use ffmpeg_sys::*;
 
 #[derive(Clone)]
@@ -31,9 +29,7 @@ impl AsMut<AVCodec> for DecodingCodec {
 
 impl From<Codec> for DecodingCodec {
     fn from(codec: Codec) -> DecodingCodec {
-        unsafe {
-            DecodingCodec(codec)
-        }
+        DecodingCodec(codec)
     }
 }
 
@@ -88,11 +84,6 @@ impl DecodingCodecContext {
         }
 
         decoding_context.0.load_parameters_from_codec_parameters(&CodecParameters::from(stream_config.codecpar)).map_err(|x| UnsafeError::new(UnsafeErrorKind::OpenDecoder(x)))?;
-
-        let codec_id = {
-            let internal_ref = <DecodingCodecContext as AsRef<AVCodecContext>>::as_ref(&decoding_context);
-            internal_ref.codec_id
-        };
 
         try!(decoding_context.open());
 
@@ -151,8 +142,8 @@ impl AsRawPtr<AVCodecContext> for DecodingCodecContext {
 
 impl Clone for DecodingCodecContext {
     fn clone(&self) -> Self {
-        let mut cloned_codec = self.1.clone();
-        let mut cloned_context = self.0.clone();
+        let cloned_codec = self.1.clone();
+        let cloned_context = self.0.clone();
         let mut cloned_codec_context = DecodingCodecContext(cloned_context, cloned_codec);
         cloned_codec_context.open().expect("Failed to clone DecodingContext");
         cloned_codec_context

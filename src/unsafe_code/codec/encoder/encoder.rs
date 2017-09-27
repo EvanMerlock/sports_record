@@ -1,6 +1,5 @@
 use std::marker::{Send};
 use std::convert::{From, AsRef, AsMut};
-use std::ops::{Deref, DerefMut};
 
 use std::ptr;
 use std::ffi::CString;
@@ -8,7 +7,6 @@ use std::ffi::CString;
 use unsafe_code::codec::{CodecContext, Codec};
 use unsafe_code::{AsRawPtr, Packet, Frame, UnsafeError, UnsafeErrorKind, CodecId, Rational};
 
-use libc;
 use ffmpeg_sys::*;
 
 #[derive(Clone)]
@@ -30,9 +28,7 @@ impl AsMut<AVCodec> for EncodingCodec {
 
 impl From<Codec> for EncodingCodec {
     fn from(codec: Codec) -> EncodingCodec {
-        unsafe {
-            EncodingCodec(codec)
-        }
+        EncodingCodec(codec)
     }
 }
 
@@ -76,7 +72,7 @@ impl EncodingCodecContext {
     
     unsafe fn allocate_encoding_context(codec_type: CodecId, height: i32, width: i32, time_base: Rational, gop_size: i32, max_b_frames: i32) -> Result<EncodingCodecContext, UnsafeError> {
         let encoding_codec = Codec::new_encoder(codec_type);
-        let mut temp_context = CodecContext::new_codec_based_context(&encoding_codec);
+        let temp_context = CodecContext::new_codec_based_context(&encoding_codec);
         let mut encoding_context = EncodingCodecContext::new(encoding_codec, temp_context);
 
         {
@@ -130,7 +126,7 @@ impl EncodingCodecContext {
 
     }
 
-    pub fn encode_frame(&mut self, mut frame: Frame) -> Result<Vec<Packet>, UnsafeError> {
+    pub fn encode_frame(&mut self, frame: Frame) -> Result<Vec<Packet>, UnsafeError> {
         unsafe {
             self.encode_raw_frame(frame)
         }
@@ -179,8 +175,8 @@ impl AsRawPtr<AVCodecContext> for EncodingCodecContext {
 
 impl Clone for EncodingCodecContext {
     fn clone(&self) -> Self {
-        let mut cloned_codec = self.1.clone();
-        let mut cloned_context = self.0.clone();
+        let cloned_codec = self.1.clone();
+        let cloned_context = self.0.clone();
         let mut cloned_encoding_context = EncodingCodecContext(cloned_context, cloned_codec);
         cloned_encoding_context.open().expect("Cloning an EncodingContext failed");
         cloned_encoding_context

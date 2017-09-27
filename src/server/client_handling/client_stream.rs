@@ -4,18 +4,15 @@ use std::thread::JoinHandle;
 use std::result::Result;
 use std::sync::mpsc::{Sender, Receiver, channel};
 use std::io::Write;
-use std::io;
 use std::cell::Cell;
-use std::collections::VecDeque;
 
 use std::ffi::CString;
 
 use server::ServerError;
 use config::stream_config::StreamConfiguration;
 
-use unsafe_code::format::{FormatContext, InputContext, OutputContext};
-use unsafe_code::{Rational, CodecId, Packet, DataPacket, UnsafeError, UnsafeErrorKind};
-use unsafe_code::{EncodingCodecContext, DecodingCodecContext};
+use unsafe_code::format::{FormatContext, OutputContext};
+use unsafe_code::{EncodingCodecContext, Rational, CodecId, Packet, UnsafeError, UnsafeErrorKind};
 use networking::NetworkPacket;
 
 use uuid::Uuid;
@@ -49,7 +46,7 @@ pub enum RecordingInstructions {
 }
 
 impl ClientThreadInformation {
-    pub fn new(sock: SocketAddr, mut tcp_stream: TcpStream) -> ClientThreadInformation {
+    pub fn new(sock: SocketAddr, tcp_stream: TcpStream) -> ClientThreadInformation {
         let (send, recv) = channel();
         let thread_handle = thread::spawn(move || {
             let val = client_write_handler(tcp_stream, recv);
@@ -114,12 +111,12 @@ impl ClientStream {
 
 }
 
-fn client_write_handler(mut stream: TcpStream, recv: Receiver<RecordingInstructions>) -> Result<(), ServerError> {
+fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>) -> Result<(), ServerError> {
 
     let mut currently_cleaning = false;
 
-    let mut write_stream = try!(stream.try_clone());
-    let mut read_stream = try!(stream.try_clone());
+    let write_stream = try!(stream.try_clone());
+    let read_stream = try!(stream.try_clone());
     
     let mut read_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), read_stream);
     let mut write_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), write_stream);
@@ -139,7 +136,6 @@ fn client_write_handler(mut stream: TcpStream, recv: Receiver<RecordingInstructi
     while !currently_cleaning {
         loop {
             let curr_instruction = recv.recv().unwrap();
-            let mut frames_read = 0;
             match curr_instruction {
                 RecordingInstructions::StartRecording(i) => {
                     let _ = write_channel.write(b"START");
@@ -237,30 +233,28 @@ enum TranslatedRecordingInstructions {
 
 struct ServerToClientThreadHandler {
     rec_vid_thread: Cell<JoinHandle<Result<i32, ServerError>>>,
-    currently_recv: bool,
     instr_tun: Sender<TranslatedRecordingInstructions>,
     conf: StreamConfiguration,
 }
 
 impl ServerToClientThreadHandler {
-    fn new(conf: StreamConfiguration, mut read_channel: DualMessenger<TcpStream>) -> ServerToClientThreadHandler {
+    fn new(conf: StreamConfiguration, read_channel: DualMessenger<TcpStream>) -> ServerToClientThreadHandler {
         let (send, recv) = channel();
         let rec_vid_thread = thread::spawn(move || {
             receive_video(conf, read_channel, recv)
         });
         ServerToClientThreadHandler {
             rec_vid_thread: Cell::new(rec_vid_thread),
-            currently_recv: false,
             instr_tun: send,
             conf: conf,
         }
     }
 
     fn start(&mut self) {
-        self.instr_tun.send(TranslatedRecordingInstructions::Start);
+        let _ = self.instr_tun.send(TranslatedRecordingInstructions::Start);
     }
 
-    fn stop(&mut self, mut read_channel: DualMessenger<TcpStream>) {
+    fn stop(&mut self, read_channel: DualMessenger<TcpStream>) {
         let (instr_tx, instr_rx) = channel();
         let pass_conf = self.conf.clone();
         let rec_vid_thread = thread::spawn(move || {

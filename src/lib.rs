@@ -12,6 +12,7 @@ extern crate serde_json;
 extern crate messenger_plus;
 extern crate time;
 extern crate libc;
+extern crate toml;
 
 pub mod server;
 pub mod client;

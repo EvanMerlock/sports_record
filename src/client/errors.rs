@@ -4,13 +4,17 @@ use std::fmt;
 use std::io;
 use std::net::AddrParseError;
 use std::str;
+use std::env;
 use unsafe_code::UnsafeError;
+use config::client_configuration::ClientConfigurationError;
 
 #[derive(Debug)]
 pub enum ClientErrorKind {
     UnsafeError(UnsafeError),
     IOError(io::Error),
     AddrParseErr(AddrParseError),
+    VarParseErr(env::VarError),
+    ClientConfigurationError(ClientConfigurationError)
 }
 
 impl fmt::Display for ClientErrorKind {
@@ -19,6 +23,8 @@ impl fmt::Display for ClientErrorKind {
             &ClientErrorKind::IOError(ref err) => err.fmt(fmter),
             &ClientErrorKind::AddrParseErr(ref err) => err.fmt(fmter),
             &ClientErrorKind::UnsafeError(ref err) => err.fmt(fmter),
+            &ClientErrorKind::VarParseErr(ref err) => err.fmt(fmter),
+            &ClientErrorKind::ClientConfigurationError(ref err) => err.fmt(fmter),
         }
     }
 }
@@ -65,5 +71,17 @@ impl From<AddrParseError> for ClientError {
 impl From<UnsafeError> for ClientError {
     fn from(err: UnsafeError) -> ClientError {
         ClientError::new(ClientErrorKind::UnsafeError(err))
+    }
+}
+
+impl From<env::VarError> for ClientError {
+    fn from(err: env::VarError) -> ClientError {
+        ClientError::new(ClientErrorKind::VarParseErr(err))
+    }
+}
+
+impl From<ClientConfigurationError> for ClientError {
+    fn from(err: ClientConfigurationError) -> ClientError {
+        ClientError::new(ClientErrorKind::ClientConfigurationError(err))
     }
 }

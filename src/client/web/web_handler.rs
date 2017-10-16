@@ -62,7 +62,6 @@ impl WebClient {
     fn new(mut stream: Client<TcpStream>) -> WebClient {
         let (tx, rx) = channel::<Arc<Vec<u8>>>();
         let handle = thread::spawn(move || {
-            println!("got client, sending");
             let stream_connected = true;
             while stream_connected {
                 match rx.try_recv() {

@@ -1,6 +1,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::thread;
 use std::thread::JoinHandle;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender};
 use std::cell::Cell;
 
@@ -9,30 +10,31 @@ use messenger_plus::stream;
 use config::client_configuration::CameraConfiguration;
 use client::errors::ClientError;
 use client::{ClientStatusFlag, send_video};
+use client::web::WebHandler;
 use networking::NetworkPacket;
 
 use unsafe_code::UnsafeError;
 
-#[derive(Debug)]
 pub struct Client {
     name: String,
-    server_ip: SocketAddr,
     stream: TcpStream,
+    http_server: WebHandler,
 }
 
 impl Client {
-    pub fn new(name: &str, sock: SocketAddr) -> Result<Client, ClientError> {
-        let stream = try!(TcpStream::connect(sock));
+    pub fn new(name: &str, socks: (SocketAddr, SocketAddr)) -> Result<Client, ClientError> {
+        let stream = try!(TcpStream::connect(socks.0));
+        let wh_tuple = WebHandler::new(socks.1)?;
 
-        Ok(Client { name: String::from(name), server_ip: sock, stream: stream })
+        Ok(Client { name: String::from(name), http_server: wh_tuple, stream: stream })
     }
 
-    pub fn stream_handler(&mut self, camera_config: CameraConfiguration) -> Result<(), ClientError> {
+    pub fn stream_handler(&mut self, camera_config: CameraConfiguration, arc_sender: Sender<Arc<Vec<u8>>>) -> Result<(), ClientError> {
         let read_stream = try!(self.stream.try_clone());
         let write_stream = try!(self.stream.try_clone());
         let mut read_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), read_stream);
         let write_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), write_stream);
-        let mut video_processing = ClientVideoThreadHandler::new(write_channel, camera_config);
+        let mut video_processing = ClientVideoThreadHandler::new(write_channel, camera_config, arc_sender);
 
         let mut stream_open = true;
         
@@ -70,6 +72,10 @@ impl Client {
 
         Ok(())
     }
+
+    pub fn get_web_handler_ref(&self) -> &WebHandler {
+        &self.http_server
+    }
 }
 
 struct ClientVideoThreadHandler {
@@ -79,11 +85,11 @@ struct ClientVideoThreadHandler {
 }
 
 impl ClientVideoThreadHandler {
-    fn new(mut write_channel: DualMessenger<TcpStream>, camera_config: CameraConfiguration) -> ClientVideoThreadHandler {
+    fn new<'a>(mut write_channel: DualMessenger<TcpStream>, camera_config: CameraConfiguration, jpeg_sender: Sender<Arc<Vec<u8>>>) -> ClientVideoThreadHandler {
         let (instr_tx, instr_rx) = channel();
         let (tx, rx) = channel::<NetworkPacket>();
         let send_video_handle = thread::spawn(|| {
-            println!("Send Video Completion Status: {:?}", send_video(camera_config, instr_rx, tx));
+            println!("Send Video Completion Status: {:?}", send_video(camera_config, instr_rx, tx, jpeg_sender));
         });
         let write_video_handle = thread::spawn(move || {
             for item in rx {

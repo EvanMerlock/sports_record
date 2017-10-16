@@ -8,6 +8,7 @@ messenger_plus = { path = "../messager_plus" }
 
 iron = "0.5.1"
 router = "0.5.0"
+websocket = { version = "0.20.2", features = ["sync", "sync-ssl"] }
 
 uuid = { version = "0.2", features = ["v4"] }
 
@@ -15,7 +16,6 @@ rusqlite = "0.10.1"
 
 ffmpeg-sys = "3.2.1"
 libc = "0.2.19"
-magick_rust = { git = "https://github.com/deadlyelectron/magick-rust.git" }
 time = "0.1.36"
 
 serde = "1.0.11"

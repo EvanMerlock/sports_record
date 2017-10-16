@@ -118,7 +118,7 @@ impl EncodingCodecContext {
                 return Err(UnsafeError::new(UnsafeErrorKind::ReceivePacket(ret)));
             }
 
-            vec.push(Packet::from(Box::from_raw(packet)));
+            vec.push(Packet::from(packet));
 
         }
 

@@ -1,6 +1,7 @@
 use std::thread;
 use std::thread::JoinHandle;
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
+use std::sync::Arc;
 
 use std::ffi::CString;
 
@@ -10,6 +11,7 @@ use config::client_configuration::CameraConfiguration;
 use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational, CodecId, Frame};
 use unsafe_code::format::{FormatContext, InputContext, Stream};
 use unsafe_code::sws::SWSContext;
+use unsafe_code::img_processing;
 use unsafe_code::{Packet, DataPacket, EncodingCodecContext, DecodingCodecContext};
 use config::stream_config::StreamConfiguration;
 use networking::NetworkPacket;
@@ -21,7 +23,7 @@ enum PacketMessage {
     Flush,
 }
 
-pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver<ClientStatusFlag>, stream: Sender<NetworkPacket>) -> Result<(), UnsafeError> {  
+pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver<ClientStatusFlag>, stream: Sender<NetworkPacket>, jpeg_sender: Sender<Arc<Vec<u8>>>) -> Result<(), UnsafeError> {  
     init_av();
 
     //INPUT ALLOCATION
@@ -36,10 +38,12 @@ pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver
         let output_stream_configuration = StreamConfiguration::from(<EncodingCodecContext as AsRef<AVCodecContext>>::as_ref(&context_storage.encoding_context));
         let _ = stream.send(NetworkPacket::JSONPayload(output_stream_configuration));
 
+        let mut sender = jpeg_sender;
+
         let mut currently_recording = false;
         loop {
             let (packet_tx, packet_rx) = channel();
-            let render_thread_handle = spawn_thread(context_storage.clone(), stream.clone(), packet_rx);
+            let render_thread_handle = spawn_thread(context_storage.clone(), stream.clone(), packet_rx, sender);
             let mut packets_read = 0;
             loop {
                 match message_transfer.try_recv() {
@@ -65,7 +69,7 @@ pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver
             println!("Read {} packets, now sending flush signal", packets_read);
             let _ = packet_tx.send(PacketMessage::Flush);
 
-            let _ = render_thread_handle.join();
+            sender = render_thread_handle.join().expect("couldn't join to thread");
         }
         Ok(())
     } else {
@@ -87,25 +91,34 @@ fn generate_contexts(stream: &mut Stream) -> Result<CodecStorage, UnsafeError> {
         0, 0
     )?;
 
+    let jpeg_context = EncodingCodecContext::create_jpeg_context(
+        stream_configuration.height, stream_configuration.width,
+        Rational::new(1, 30)
+    )?;
+
+    // TODO: SWS context for YUV420P -> RGB24
+    let jpeg_sws_context = SWSContext::new(stream_configuration.height, stream_configuration.width, AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24)?;
+
     // SWS ALLOCATION
     let sws_context = try!(SWSContext::new(stream_configuration.height, stream_configuration.width, *stream_configuration.pix_fmt, AV_PIX_FMT_YUV420P));
-    let context_storage: CodecStorage = CodecStorage::new(encoding_context, decoding_context, sws_context);
+    let context_storage: CodecStorage = CodecStorage::new(encoding_context, decoding_context, jpeg_context, sws_context, jpeg_sws_context);
 
 
     Ok(context_storage)
 }
 
-fn spawn_thread(mut context_storage: CodecStorage, stream: Sender<NetworkPacket>, packet_rx: Receiver<PacketMessage>) -> JoinHandle<i64> {
+fn spawn_thread(mut context_storage: CodecStorage, stream: Sender<NetworkPacket>, packet_rx: Receiver<PacketMessage>, jpeg_sender: Sender<Arc<Vec<u8>>>) -> JoinHandle<Sender<Arc<Vec<u8>>>> {
     thread::spawn(move || {
         let mut time = 0;
         for item in packet_rx.iter() {
             match item {
-                PacketMessage::Packet(p) => {
-                    let conv_pkt_attempt = transcode_packet(&mut context_storage, p, time);
+                PacketMessage::Packet(packet) => {
+                    let conv_pkt_attempt = transcode_packet(&mut context_storage, &jpeg_sender, packet, time);
                     if let Ok(conv_pkt) = conv_pkt_attempt {
                         let _ = stream.send(conv_pkt);
                         time = time + 1;
                     } else {
+                        println!("failed to conv pkt: {:?}", conv_pkt_attempt);
                         break;
                     }
                 },
@@ -122,15 +135,22 @@ fn spawn_thread(mut context_storage: CodecStorage, stream: Sender<NetworkPacket>
         }
         println!("finished sending");
         let _ = stream.send(NetworkPacket::PayloadEnd);
-        time
+        jpeg_sender
     })
 }
 
-fn transcode_packet(contexts: &mut CodecStorage, packet: Packet, frame_loc: i64) -> Result<NetworkPacket, UnsafeError> {
-    let raw_frame: Frame = try!(contexts.decoding_context.decode_packet(&packet));
+fn transcode_packet(contexts: &mut CodecStorage, jpeg_sender: &Sender<Arc<Vec<u8>>>, packet: Packet, frame_loc: i64) -> Result<NetworkPacket, UnsafeError> {
+    let mut raw_frame: Frame = try!(contexts.decoding_context.decode_packet(&packet));
 
-    let scaled_frame: Frame = try!(contexts.sws_context.change_pixel_format(raw_frame, 32, frame_loc));
+    let mut scaled_frame: Frame = contexts.sws_context.change_pixel_format(&mut raw_frame, 32, frame_loc)?;
+    let jpeg_frame: Frame = contexts.jpeg_sws_context.change_pixel_format(&mut scaled_frame, 32, frame_loc)?;
     println!("current frame pts: {}", scaled_frame.pts);
+
+    match contexts.jpeg_context.encode_jpeg_frame(&jpeg_frame) {
+        Ok(e) => { jpeg_sender.send(Arc::new(e)); },
+        Err(e) => println!("{:?}", e),
+    }
+
 
     let pkts = try!(contexts.encoding_context.encode_frame(scaled_frame));
     Ok(NetworkPacket::PacketStream(pkts.into_iter().map(|x: Packet| DataPacket::from(x)).collect()))

@@ -29,14 +29,11 @@ fn run_client() -> Result<(), ClientError> {
             cfg
         };
 
-    let server_addr = try!(string_to_socket("127.0.0.1:8000"));
-    let mut client = try!(Client::new(client_config.get_name(), server_addr));
+    let mut client = Client::new(client_config.get_name(), (SocketAddr::from_str("127.0.0.1:8000")?, SocketAddr::from_str("127.0.0.1:4000")?))?;
 
-    let _ = client.stream_handler(client_config.get_camera_settings().clone());
+    let sender = client.get_web_handler_ref().get_sender();
+
+    let _ = client.stream_handler(client_config.get_camera_settings().clone(), sender);
 
     Ok(())
-}
-
-fn string_to_socket(ip: &str) -> Result<SocketAddr, AddrParseError> {
-    SocketAddr::from_str(ip)
 }

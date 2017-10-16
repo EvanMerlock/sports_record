@@ -4,72 +4,61 @@ use std::fs::File;
 use std::slice::from_raw_parts;
 use std::ptr;
 
-use unsafe_code::{UnsafeError, UnsafeErrorKind, CodecContext, Rational};
-use unsafe_code::img_processing::magick;
+use unsafe_code::{UnsafeError, UnsafeErrorKind, Codec, CodecId, CodecContext, Rational, Packet, Frame, EncodingCodecContext, EncodingCodec, AsRawPtr};
 
 use ffmpeg_sys::*;
 
-unsafe fn allocate_jpeg_codec(height: i32, width: i32, time_base: Rational) -> Result<(*mut AVCodec, *mut AVCodecContext), UnsafeError> {
+impl EncodingCodecContext {
 
-    let codec_ptr: *mut AVCodec = avcodec_find_encoder(AV_CODEC_ID_JPEG2000);
-    let jpeg_context_ptr: *mut AVCodecContext = avcodec_alloc_context3(codec_ptr);
+    unsafe fn allocate_jpeg_codec(height: i32, width: i32, time_base: Rational) -> Result<EncodingCodecContext, UnsafeError> {
 
-    let ref mut jpeg_context: AVCodecContext = *jpeg_context_ptr;
+        let codec_ptr = Codec::new_encoder(CodecId::from(AV_CODEC_ID_JPEGLS));
+        let mut jpeg_context_ptr = CodecContext::new_codec_based_context(&codec_ptr);
+        {
+            let jpeg_context: &mut AVCodecContext = jpeg_context_ptr.as_mut();
 
-    jpeg_context.height = height;
-    jpeg_context.width = width;
+            jpeg_context.height = height;
+            jpeg_context.width = width;
 
-    jpeg_context.time_base = time_base.into();
+            jpeg_context.time_base = time_base.into();
 
-    jpeg_context.pix_fmt = AV_PIX_FMT_YUV420P;
+            jpeg_context.pix_fmt = AV_PIX_FMT_RGB24;
+        }
 
-    let ret = avcodec_open2(jpeg_context_ptr, codec_ptr, ptr::null_mut());
-    if ret < 0 {
-        return Err(UnsafeError::new(UnsafeErrorKind::OpenEncoder(ret)));
+        let mut encode = EncodingCodecContext::new(codec_ptr, jpeg_context_ptr);
+
+        encode.open()?;
+
+        Ok(encode)
+
     }
 
-    Ok((codec_ptr, jpeg_context_ptr))
-
-
-}
-
-pub fn create_jpeg_context(height: i32, width: i32, time_base: Rational) -> Result<CodecContext, UnsafeError> {
-    unsafe {
-        match allocate_jpeg_codec(height, width, time_base) {
-            Ok((_, context)) => Ok(CodecContext::from(context)),
-            Err(e) => Err(e),
+    pub fn create_jpeg_context(height: i32, width: i32, time_base: Rational) -> Result<EncodingCodecContext, UnsafeError> {
+        unsafe {
+            EncodingCodecContext::allocate_jpeg_codec(height, width, time_base)
         }
     }
-}
 
-unsafe fn encode_jpeg_frame(codec: &mut AVCodecContext, frame: &AVFrame, mut file: File) -> Result<(), UnsafeError> {
-    let packet = av_packet_alloc();
-    let ret = avcodec_send_frame(codec, frame);
+    unsafe fn create_jpeg_frame(&mut self, frame: &Frame) -> Result<Vec<u8>, UnsafeError> {
+        let ret = avcodec_send_frame(self.as_mut_ptr(), frame.as_ptr());
 
-    if ret < 0 {
-        return Err(UnsafeError::new(UnsafeErrorKind::SendFrame(ret)));
+        if ret < 0 {
+            return Err(UnsafeError::new(UnsafeErrorKind::SendFrame(ret)));
+        }
+
+        let packet = av_packet_alloc();
+        let ret = avcodec_receive_packet(self.as_mut_ptr(), packet);
+        if ret < 0 {
+            return Err(UnsafeError::new(UnsafeErrorKind::ReceivePacket(ret)));
+        }
+
+        let img_vec = from_raw_parts((*packet).data, (*packet).size as usize).to_vec();
+        Ok(img_vec)
     }
 
-    let ret = avcodec_receive_packet(codec, packet);
-
-    if ret == -11 || ret == AVERROR_EOF {
-        return Ok(());
-    } else if ret < 0 {
-        return Err(UnsafeError::new(UnsafeErrorKind::ReceivePacket(ret)));
-    }
-
-    let img_vec = from_raw_parts((*packet).data, (*packet).size as usize).to_vec();
-    let img_vec = try!(magick::convert_colorspace(img_vec));
-
-
-    let _ = file.write(img_vec.as_slice());
-    av_packet_unref(packet);
-
-    Ok(())
-}
-
-pub fn write_frame_to_jpeg(codec: &mut AVCodecContext, frame: &AVFrame, file: File) -> Result<(), UnsafeError> {
-    unsafe {
-        encode_jpeg_frame(codec, frame, file)
+    pub fn encode_jpeg_frame(&mut self, frame: &Frame) -> Result<Vec<u8>, UnsafeError> {
+        unsafe {
+            self.create_jpeg_frame(frame)
+        }
     }
 }

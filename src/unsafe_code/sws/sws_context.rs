@@ -11,7 +11,7 @@ use unsafe_code::PixelFormat;
 
 pub struct SWSContext(*mut SwsContext, SWSImageDefinition, SWSImageDefinition);
 
-pub struct SWSImageDefinition(i32, i32, PixelFormat);
+pub struct SWSImageDefinition(pub i32, pub i32, pub PixelFormat);
 
 impl SWSImageDefinition {
     pub fn new<T: Into<PixelFormat>>(h: i32, w: i32, fmt: T) -> SWSImageDefinition {
@@ -41,7 +41,7 @@ impl SWSContext {
         }
     }
 
-    unsafe fn scale_using_sws(&mut self, mut old_frame: Frame, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
+    unsafe fn scale_using_sws(&mut self, old_frame: &mut Frame, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
         let mut scaled_frame = Frame::new();
         scaled_frame.width = old_frame.width;
         scaled_frame.height = old_frame.height;
@@ -51,7 +51,7 @@ impl SWSContext {
         let scaled_frame_data_ptr: *mut *mut u8 = scaled_frame.data.as_mut_ptr();
         let scaled_frame_linesize_ptr: *mut i32 = scaled_frame.linesize.as_mut_ptr();
 
-        av_image_alloc(scaled_frame_data_ptr, scaled_frame_linesize_ptr, old_frame.width, old_frame.height, AV_PIX_FMT_YUV420P, align);
+        av_image_alloc(scaled_frame_data_ptr, scaled_frame_linesize_ptr, old_frame.width, old_frame.height, *(self.2).2, align);
 
         let raw_frame_data_ptr: *const *const u8 = old_frame.data.as_ptr() as *const *const u8;
         let raw_frame_linesize_ptr: *mut i32 = old_frame.linesize.as_mut_ptr();
@@ -61,7 +61,7 @@ impl SWSContext {
         Ok(Frame::from(scaled_frame))
     }
 
-    pub fn change_pixel_format(&mut self, old_frame: Frame, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
+    pub fn change_pixel_format(&mut self, old_frame: &mut Frame, align: i32, pts: i64) -> Result<Frame, UnsafeError> {
         unsafe {
             match self.scale_using_sws(old_frame, align, pts) {
                 Ok(frame) => Ok(frame),

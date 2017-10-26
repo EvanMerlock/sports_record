@@ -5,15 +5,14 @@ use std::slice::from_raw_parts;
 use std::ptr;
 
 use unsafe_code::{UnsafeError, UnsafeErrorKind, Codec, CodecId, CodecContext, Rational, Packet, Frame, EncodingCodecContext, EncodingCodec, AsRawPtr};
-use unsafe_code::img_processing::magick;
 
 use ffmpeg_sys::*;
 
 impl EncodingCodecContext {
 
-    unsafe fn allocate_jpeg_codec(height: i32, width: i32, time_base: Rational) -> Result<EncodingCodecContext, UnsafeError> {
+    unsafe fn allocate_png_codec(height: i32, width: i32, time_base: Rational) -> Result<EncodingCodecContext, UnsafeError> {
 
-        let codec_ptr = Codec::new_encoder(CodecId::from(AVCodecID::AV_CODEC_ID_JPEG2000));
+        let codec_ptr = Codec::new_encoder(CodecId::from(AVCodecID::AV_CODEC_ID_PNG));
         let mut jpeg_context_ptr = CodecContext::new_codec_based_context(&codec_ptr);
         {
             let jpeg_context: &mut AVCodecContext = jpeg_context_ptr.as_mut();
@@ -34,13 +33,13 @@ impl EncodingCodecContext {
 
     }
 
-    pub fn create_jpeg_context(height: i32, width: i32, time_base: Rational) -> Result<EncodingCodecContext, UnsafeError> {
+    pub fn create_png_context(height: i32, width: i32, time_base: Rational) -> Result<EncodingCodecContext, UnsafeError> {
         unsafe {
-            EncodingCodecContext::allocate_jpeg_codec(height, width, time_base)
+            EncodingCodecContext::allocate_png_codec(height, width, time_base)
         }
     }
 
-    unsafe fn create_jpeg_frame(&mut self, frame: &Frame) -> Result<Vec<u8>, UnsafeError> {
+    unsafe fn create_png_frame(&mut self, frame: &Frame) -> Result<Vec<u8>, UnsafeError> {
         let ret = avcodec_send_frame(self.as_mut_ptr(), frame.as_ptr());
 
         if ret < 0 {
@@ -53,15 +52,15 @@ impl EncodingCodecContext {
             return Err(UnsafeError::new(UnsafeErrorKind::ReceivePacket(ret)));
         }
 
-        let img_vec =  {
-            magick::to_image_blob(from_raw_parts((*packet).data, (*packet).size as usize).to_vec().clone())?
+        let img_vec = {
+            from_raw_parts((*packet).data, (*packet).size as usize).to_vec().clone()
         };
         Ok(img_vec)
     }
 
-    pub fn encode_jpeg_frame(&mut self, frame: &Frame) -> Result<Vec<u8>, UnsafeError> {
+    pub fn encode_png_frame(&mut self, frame: &Frame) -> Result<Vec<u8>, UnsafeError> {
         unsafe {
-            self.create_jpeg_frame(frame)
+            self.create_png_frame(frame)
         }
     }
 }

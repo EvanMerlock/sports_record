@@ -80,7 +80,7 @@ impl WebClient {
             let stream_connected = true;
             while stream_connected {
                 match rx.try_recv() {
-                    Ok(item) => { stream.send_message(&Message::text(format!("data:image/jpeg;base64,{}", base64::encode(item.as_slice())))); },
+                    Ok(item) => { stream.send_message(&Message::text(format!("data:image/png;base64,{}", base64::encode(item.as_slice())))); },
                     _ => {},
                 }
             }

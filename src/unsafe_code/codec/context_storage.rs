@@ -8,19 +8,19 @@ use unsafe_code::sws::SWSContext;
 pub struct CodecStorage {
     pub encoding_context: EncodingCodecContext,
     pub decoding_context: DecodingCodecContext,
-    pub jpeg_context: EncodingCodecContext,
-    pub jpeg_sws_context: SWSContext,
+    pub png_context: EncodingCodecContext,
+    pub png_sws_context: SWSContext,
     pub sws_context: SWSContext,
 }
 
 impl CodecStorage {
 
-    pub fn new(enc: EncodingCodecContext, dec: DecodingCodecContext, jpeg: EncodingCodecContext, sws: SWSContext, jpeg_sws: SWSContext) -> CodecStorage {
+    pub fn new(enc: EncodingCodecContext, dec: DecodingCodecContext, png: EncodingCodecContext, sws: SWSContext, png_sws: SWSContext) -> CodecStorage {
         CodecStorage {
             encoding_context: enc,
-            jpeg_context: jpeg,
+            png_context: png,
             decoding_context: dec,
-            jpeg_sws_context: jpeg_sws,
+            png_sws_context: png_sws,
             sws_context: sws,
         }
     }

@@ -15,7 +15,6 @@ extern crate toml;
 extern crate websocket;
 extern crate liquid;
 extern crate base64;
-extern crate magick_rust;
 
 pub mod server;
 pub mod client;

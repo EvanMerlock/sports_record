@@ -11,7 +11,6 @@ router = "0.5.0"
 websocket = { version = "0.20.2", features = ["sync", "sync-ssl"] }
 liquid = "0.10.1"
 base64 = "0.7.0"
-magick_rust = { git = "https://github.com/deadlyelectron/magick-rust.git" }
 
 uuid = { version = "0.2", features = ["v4"] }
 

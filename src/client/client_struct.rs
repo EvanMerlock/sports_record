@@ -22,9 +22,9 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(name: &str, socks: (SocketAddr, SocketAddr)) -> Result<Client, ClientError> {
+    pub fn new(name: &str, socks: (SocketAddr, SocketAddr, SocketAddr)) -> Result<Client, ClientError> {
         let stream = try!(TcpStream::connect(socks.0));
-        let wh_tuple = WebHandler::new(socks.1)?;
+        let wh_tuple = WebHandler::new((socks.1, socks.2))?;
 
         Ok(Client { name: String::from(name), http_server: wh_tuple, stream: stream })
     }

@@ -27,7 +27,7 @@ pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver
     init_av();
 
     //INPUT ALLOCATION
-    let input_format: &AVInputFormat = InputContext::create_input_format(camera_config.get_input_type());
+    let input_format: &mut AVInputFormat = InputContext::create_input_format(camera_config.get_input_type());
     let mut input_context: InputContext = FormatContext::new_input(input_format, camera_config.get_camera_location())?;
 
     //Grab the stream from the input context
@@ -85,7 +85,7 @@ fn generate_contexts(stream: &mut Stream) -> Result<CodecStorage, UnsafeError> {
     let stream_configuration = StreamConfiguration::from(stream as &_);
 
     let encoding_context = EncodingCodecContext::create_encoding_context(
-        CodecId::from(AV_CODEC_ID_H264), 
+        CodecId::from(AVCodecID::AV_CODEC_ID_H264), 
         stream_configuration.height, stream_configuration.width, 
         Rational::new(1, 30),
         0, 0
@@ -96,11 +96,10 @@ fn generate_contexts(stream: &mut Stream) -> Result<CodecStorage, UnsafeError> {
         Rational::new(1, 30)
     )?;
 
-    // TODO: SWS context for YUV420P -> RGB24
-    let jpeg_sws_context = SWSContext::new(stream_configuration.height, stream_configuration.width, AV_PIX_FMT_YUV420P, AV_PIX_FMT_RGB24)?;
+    let jpeg_sws_context = SWSContext::new(stream_configuration.height, stream_configuration.width, AVPixelFormat::AV_PIX_FMT_YUV420P, AVPixelFormat::AV_PIX_FMT_RGB24)?;
 
     // SWS ALLOCATION
-    let sws_context = try!(SWSContext::new(stream_configuration.height, stream_configuration.width, *stream_configuration.pix_fmt, AV_PIX_FMT_YUV420P));
+    let sws_context = try!(SWSContext::new(stream_configuration.height, stream_configuration.width, *stream_configuration.pix_fmt, AVPixelFormat::AV_PIX_FMT_YUV420P));
     let context_storage: CodecStorage = CodecStorage::new(encoding_context, decoding_context, jpeg_context, sws_context, jpeg_sws_context);
 
 

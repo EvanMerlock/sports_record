@@ -52,7 +52,7 @@ impl DecodingCodecContext {
 
     pub fn open(&mut self) -> Result<(), UnsafeError> {
         unsafe {
-            if self.as_ref().codec_id == AV_CODEC_ID_H264 {
+            if self.as_ref().codec_id == AVCodecID::AV_CODEC_ID_H264 {
                 let preset_string = CString::new("preset").unwrap();
                 let ultrafast = CString::new("ultrafast").unwrap();
                 let crf_string = CString::new("crf").unwrap();

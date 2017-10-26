@@ -17,27 +17,27 @@ unsafe impl Sync for PixelFormat {}
 impl PixelFormat {
     fn to_static_str(&self) -> &'static str {
         match self.0 {
-            AV_PIX_FMT_NONE    => "AV_PIX_FMT_NONE",
-	        AV_PIX_FMT_YUV420P => "AV_PIX_FMT_YUV420P",
-	        AV_PIX_FMT_YUYV422 => "AV_PIX_FMT_YUYV422",
-	        AV_PIX_FMT_YUV422P => "AV_PIX_FMT_YUV422P",
-	        AV_PIX_FMT_YUV444P => "AV_PIX_FMT_YUV444P",
-	        AV_PIX_FMT_YUV410P => "AV_PIX_FMT_YUV410P",
-	        AV_PIX_FMT_YUV411P => "AV_PIX_FMT_YUV411P",
+            AVPixelFormat::AV_PIX_FMT_NONE    => "AV_PIX_FMT_NONE",
+	        AVPixelFormat::AV_PIX_FMT_YUV420P => "AV_PIX_FMT_YUV420P",
+	        AVPixelFormat::AV_PIX_FMT_YUYV422 => "AV_PIX_FMT_YUYV422",
+	        AVPixelFormat::AV_PIX_FMT_YUV422P => "AV_PIX_FMT_YUV422P",
+	        AVPixelFormat::AV_PIX_FMT_YUV444P => "AV_PIX_FMT_YUV444P",
+	        AVPixelFormat::AV_PIX_FMT_YUV410P => "AV_PIX_FMT_YUV410P",
+	        AVPixelFormat::AV_PIX_FMT_YUV411P => "AV_PIX_FMT_YUV411P",
             _                  => "AV_PIX_FMT_NONE",
         }
     }
 
     fn from_str(item: &str) -> PixelFormat {
         match item {
-            "AV_PIX_FMT_NONE"    => PixelFormat::from(AV_PIX_FMT_NONE),
-            "AV_PIX_FMT_YUV420P" => PixelFormat::from(AV_PIX_FMT_YUV420P),
-            "AV_PIX_FMT_YUYV422" => PixelFormat::from(AV_PIX_FMT_YUYV422),
-            "AV_PIX_FMT_YUV422P" => PixelFormat::from(AV_PIX_FMT_YUV422P),
-            "AV_PIX_FMT_YUV444P" => PixelFormat::from(AV_PIX_FMT_YUV444P),
-            "AV_PIX_FMT_YUV410P" => PixelFormat::from(AV_PIX_FMT_YUV410P),
-            "AV_PIX_FMT_YUV411P" => PixelFormat::from(AV_PIX_FMT_YUV411P),
-            _                    => PixelFormat::from(AV_PIX_FMT_NONE),
+            "AV_PIX_FMT_NONE"    => PixelFormat::from(AVPixelFormat::AV_PIX_FMT_NONE),
+            "AV_PIX_FMT_YUV420P" => PixelFormat::from(AVPixelFormat::AV_PIX_FMT_YUV420P),
+            "AV_PIX_FMT_YUYV422" => PixelFormat::from(AVPixelFormat::AV_PIX_FMT_YUYV422),
+            "AV_PIX_FMT_YUV422P" => PixelFormat::from(AVPixelFormat::AV_PIX_FMT_YUV422P),
+            "AV_PIX_FMT_YUV444P" => PixelFormat::from(AVPixelFormat::AV_PIX_FMT_YUV444P),
+            "AV_PIX_FMT_YUV410P" => PixelFormat::from(AVPixelFormat::AV_PIX_FMT_YUV410P),
+            "AV_PIX_FMT_YUV411P" => PixelFormat::from(AVPixelFormat::AV_PIX_FMT_YUV411P),
+            _                    => PixelFormat::from(AVPixelFormat::AV_PIX_FMT_NONE),
         }
     }
 }

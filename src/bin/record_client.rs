@@ -29,7 +29,7 @@ fn run_client() -> Result<(), ClientError> {
             cfg
         };
 
-    let mut client = Client::new(client_config.get_name(), (SocketAddr::from_str("127.0.0.1:8000")?, SocketAddr::from_str("127.0.0.1:4000")?))?;
+    let mut client = Client::new(client_config.get_name(), (SocketAddr::from_str("127.0.0.1:8000")?, SocketAddr::from_str("127.0.0.1:4000")?, SocketAddr::from_str("127.0.0.1:8070")?))?;
 
     let sender = client.get_web_handler_ref().get_sender();
 

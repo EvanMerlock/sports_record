@@ -17,12 +17,12 @@ impl FormatContext {
     pub fn new_output(filename: CString) -> OutputContext {
         unsafe {
             let mut for_ctx_ptr: *mut AVFormatContext = ptr::null_mut();
-            avformat_alloc_output_context2(&mut for_ctx_ptr, ptr::null(), ptr::null(), filename.into_raw());
+            avformat_alloc_output_context2(&mut for_ctx_ptr, ptr::null_mut(), ptr::null(), filename.into_raw());
             OutputContext::from(FormatContext(for_ctx_ptr))
         }
     }
 
-    pub fn new_input(input_format: &AVInputFormat, input_location: CString) -> Result<InputContext, UnsafeError> {
+    pub fn new_input(input_format: &mut AVInputFormat, input_location: CString) -> Result<InputContext, UnsafeError> {
         unsafe {
             let mut input_context_ptr: *mut AVFormatContext = ptr::null_mut();
             let ret = avformat_open_input(&mut input_context_ptr, input_location.as_ptr(), input_format, &mut ptr::null_mut()); 

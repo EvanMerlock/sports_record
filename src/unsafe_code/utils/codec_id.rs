@@ -17,25 +17,25 @@ unsafe impl Sync for CodecId {}
 impl CodecId {
     fn to_static_str(&self) -> &'static str {
         match self.0 {
-            AV_CODEC_ID_NONE     => "AV_CODEC_ID_NONE",
-            AV_CODEC_ID_MJPEG    => "AV_CODEC_ID_MJPEG",
-            AV_CODEC_ID_MPEG4    => "AV_CODEC_ID_MPEG4",
-            AV_CODEC_ID_RAWVIDEO => "AV_CODEC_ID_RAWVIDEO",
-            AV_CODEC_ID_JPEG2000 => "AV_CODEC_ID_JPEG2000",
-            AV_CODEC_ID_H264     => "AV_CODEC_ID_H264",
+            AVCodecID::AV_CODEC_ID_NONE     => "AV_CODEC_ID_NONE",
+            AVCodecID::AV_CODEC_ID_MJPEG    => "AV_CODEC_ID_MJPEG",
+            AVCodecID::AV_CODEC_ID_MPEG4    => "AV_CODEC_ID_MPEG4",
+            AVCodecID::AV_CODEC_ID_RAWVIDEO => "AV_CODEC_ID_RAWVIDEO",
+            AVCodecID::AV_CODEC_ID_JPEG2000 => "AV_CODEC_ID_JPEG2000",
+            AVCodecID::AV_CODEC_ID_H264     => "AV_CODEC_ID_H264",
             _                    => "AV_CODEC_ID_NONE",
         }
     }
 
     fn from_str(item: &str) -> CodecId {
         match item {
-            "AV_CODEC_ID_NONE"     => CodecId::from(AV_CODEC_ID_NONE),
-            "AV_CODEC_ID_MJPEG"    => CodecId::from(AV_CODEC_ID_MJPEG),
-            "AV_CODEC_ID_MPEG4"    => CodecId::from(AV_CODEC_ID_MPEG4),
-            "AV_CODEC_ID_RAWVIDEO" => CodecId::from(AV_CODEC_ID_RAWVIDEO),
-            "AV_CODEC_ID_JPEG2000" => CodecId::from(AV_CODEC_ID_JPEG2000),
-            "AV_CODEC_ID_H264"      => CodecId::from(AV_CODEC_ID_H264),
-            _                      => CodecId::from(AV_CODEC_ID_NONE),
+            "AV_CODEC_ID_NONE"     => CodecId::from(AVCodecID::AV_CODEC_ID_NONE),
+            "AV_CODEC_ID_MJPEG"    => CodecId::from(AVCodecID::AV_CODEC_ID_MJPEG),
+            "AV_CODEC_ID_MPEG4"    => CodecId::from(AVCodecID::AV_CODEC_ID_MPEG4),
+            "AV_CODEC_ID_RAWVIDEO" => CodecId::from(AVCodecID::AV_CODEC_ID_RAWVIDEO),
+            "AV_CODEC_ID_JPEG2000" => CodecId::from(AVCodecID::AV_CODEC_ID_JPEG2000),
+            "AV_CODEC_ID_H264"      => CodecId::from(AVCodecID::AV_CODEC_ID_H264),
+            _                      => CodecId::from(AVCodecID::AV_CODEC_ID_NONE),
         }
     }
 }

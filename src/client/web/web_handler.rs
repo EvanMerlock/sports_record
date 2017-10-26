@@ -8,17 +8,32 @@ use std::thread;
 
 use websocket::server::sync::{Server};
 use websocket::client::sync::{Client};
+use websocket::server::NoTlsAcceptor;
 use websocket::Message;
+
+use client::web::body_writer;
+
+use base64;
+use iron::prelude::*;
+use iron::Listening;
+use router::Router;
 
 
 pub struct WebHandler {
     clients: Arc<Mutex<Vec<WebClient>>>,
     sender: Sender<Arc<Vec<u8>>>,
+    web_server: Listening,
 }
 
 impl WebHandler {
-    pub fn new(sock: SocketAddr) -> io::Result<WebHandler> {
-        let server = Server::bind(sock)?;
+    pub fn new(sock: (SocketAddr, SocketAddr)) -> io::Result<WebHandler> {
+        let server = Server::bind(sock.0)?;
+        
+        let mut router = Router::new();
+        router.get("/", body_writer::stream_handler, "index");
+
+        let iron_server_res = Iron::new(router).http(sock.1).expect("failed to start stream server");
+
         let (tx, rx) = channel::<Arc<Vec<u8>>>();
         let mut clients = Arc::new(Mutex::new(Vec::new()));
         let cloned_clients = Arc::clone(&clients);
@@ -45,7 +60,7 @@ impl WebHandler {
                 }
             }
         });
-        Ok(WebHandler { clients: clients.clone(), sender: tx })
+        Ok(WebHandler { clients: clients.clone(), sender: tx, web_server: iron_server_res })
     }
 
     pub fn get_sender(&self) -> Sender<Arc<Vec<u8>>> {
@@ -65,7 +80,7 @@ impl WebClient {
             let stream_connected = true;
             while stream_connected {
                 match rx.try_recv() {
-                    Ok(item) => { stream.send_message(&Message::binary(item.as_slice())); },
+                    Ok(item) => { stream.send_message(&Message::text(format!("data:image/jpeg;base64,{}", base64::encode(item.as_slice())))); },
                     _ => {},
                 }
             }

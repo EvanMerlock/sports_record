@@ -9,6 +9,9 @@ messenger_plus = { path = "../messager_plus" }
 iron = "0.5.1"
 router = "0.5.0"
 websocket = { version = "0.20.2", features = ["sync", "sync-ssl"] }
+liquid = "0.10.1"
+base64 = "0.7.0"
+magick_rust = { git = "https://github.com/deadlyelectron/magick-rust.git" }
 
 uuid = { version = "0.2", features = ["v4"] }
 
@@ -19,6 +22,6 @@ libc = "0.2.19"
 time = "0.1.36"
 
 serde = "1.0.11"
-serde_derive = "1.0.11"
-serde_json = "1.0.2"
+serde_derive = "1.0.15"
+serde_json = "1.0.4"
 toml = "0.4"

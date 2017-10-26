@@ -45,13 +45,13 @@ impl InputContext {
         }
     }
 
-    unsafe fn allocate_input_format(format_name: CString) -> *const AVInputFormat {
+    unsafe fn allocate_input_format(format_name: CString) -> *mut AVInputFormat {
         av_find_input_format(format_name.as_ptr())
     }
 
-    pub fn create_input_format<'a>(format_name: CString) -> &'a AVInputFormat {
+    pub fn create_input_format<'a>(format_name: CString) -> &'a mut AVInputFormat {
         unsafe {
-            &*InputContext::allocate_input_format(format_name)
+            &mut *InputContext::allocate_input_format(format_name)
         }
     }
 }

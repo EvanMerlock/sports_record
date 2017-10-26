@@ -49,6 +49,7 @@ impl SWSContext {
         scaled_frame.pts = pts;
 
         let scaled_frame_data_ptr: *mut *mut u8 = scaled_frame.data.as_mut_ptr();
+        let scaled_frame_const_ptr: *const *const u8 = scaled_frame_data_ptr as *const *const u8;
         let scaled_frame_linesize_ptr: *mut i32 = scaled_frame.linesize.as_mut_ptr();
 
         av_image_alloc(scaled_frame_data_ptr, scaled_frame_linesize_ptr, old_frame.width, old_frame.height, *(self.2).2, align);
@@ -56,7 +57,7 @@ impl SWSContext {
         let raw_frame_data_ptr: *const *const u8 = old_frame.data.as_ptr() as *const *const u8;
         let raw_frame_linesize_ptr: *mut i32 = old_frame.linesize.as_mut_ptr();
 
-        let _ = sws_scale(self.as_mut_ptr(), raw_frame_data_ptr, raw_frame_linesize_ptr, 0, old_frame.height, scaled_frame_data_ptr, scaled_frame_linesize_ptr);
+        let _ = sws_scale(self.as_mut_ptr(), raw_frame_data_ptr, raw_frame_linesize_ptr, 0, old_frame.height, scaled_frame_const_ptr, scaled_frame_linesize_ptr);
 
         Ok(Frame::from(scaled_frame))
     }

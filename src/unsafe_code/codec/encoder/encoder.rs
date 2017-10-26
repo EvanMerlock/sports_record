@@ -51,7 +51,7 @@ impl EncodingCodecContext {
 
     pub fn open(&mut self) -> Result<(), UnsafeError> {
         unsafe {
-            if <EncodingCodecContext as AsRef<AVCodecContext>>::as_ref(self).codec_id == AV_CODEC_ID_H264 {
+            if <EncodingCodecContext as AsRef<AVCodecContext>>::as_ref(self).codec_id == AVCodecID::AV_CODEC_ID_H264 {
                 let preset_string = CString::new("preset").unwrap();
                 let ultrafast = CString::new("ultrafast").unwrap();
                 let crf_string = CString::new("crf").unwrap();
@@ -85,7 +85,7 @@ impl EncodingCodecContext {
 
             internal_ref.gop_size = gop_size;
             internal_ref.max_b_frames = max_b_frames;
-            internal_ref.pix_fmt = AV_PIX_FMT_YUV420P;
+            internal_ref.pix_fmt = AVPixelFormat::AV_PIX_FMT_YUV420P;
         }
 
         try!(encoding_context.open());

@@ -1,6 +1,7 @@
 use std::marker::{Send, Sync};
 use std::convert::{From};
 use std::mem;
+use std::ptr;
 use std::ops::{Drop, Deref, DerefMut};
 use std::io::Write;
 
@@ -11,7 +12,7 @@ use unsafe_code::packet::DataPacket;
 
 use ffmpeg_sys::*;
 
-pub struct Packet(AVPacket);
+pub struct Packet(*mut AVPacket);
 
 unsafe impl Send for Packet {}
 unsafe impl Sync for Packet {}
@@ -19,10 +20,8 @@ unsafe impl Sync for Packet {}
 impl Packet {
     pub fn new(size: usize) -> Packet {
 		unsafe {
-			let mut pkt: AVPacket = mem::zeroed();
-
-			av_init_packet(&mut pkt);
-			av_new_packet(&mut pkt, size as i32);
+			let mut pkt: *mut AVPacket = av_packet_alloc();
+			av_new_packet(pkt, size as i32);
 
 			Packet(pkt)
 		}
@@ -30,7 +29,7 @@ impl Packet {
 
     pub fn as_slice(&self) -> &[u8] {
         unsafe {
-            from_raw_parts(self.0.data, self.0.size as usize)
+            from_raw_parts((*self.0).data, (*self.0).size as usize)
         }
     }
 
@@ -43,24 +42,24 @@ impl Packet {
 
 impl AsRawPtr<AVPacket> for Packet {
     fn as_ptr(&self) -> *const AVPacket {
-        &self.0
+        unsafe {
+            &*self.0
+        }
     }
 
     fn as_mut_ptr(&mut self) -> *mut AVPacket {
-        &mut self.0
+        unsafe {
+            &mut *self.0
+        }
     }
 }
 
 impl<'a> From<&'a AVPacket> for Packet {
     fn from(pkt: &AVPacket) -> Packet {
         unsafe {
-			let mut new_packet: AVPacket = mem::zeroed();
-
-			av_init_packet(&mut new_packet);
-			av_new_packet(&mut new_packet, pkt.size);
-            av_copy_packet(&mut new_packet, pkt);
-
-            Packet(new_packet)
+			let mut new_packet: Packet = Packet::new(pkt.size as usize);
+            av_copy_packet(&mut *new_packet, pkt);
+            new_packet
         }
     }
 }
@@ -68,46 +67,16 @@ impl<'a> From<&'a AVPacket> for Packet {
 impl<'a> From<&'a mut AVPacket> for Packet {
     fn from(pkt: &mut AVPacket) -> Packet {
         unsafe {
-			let mut new_packet: AVPacket = mem::zeroed();
-
-			av_init_packet(&mut new_packet);
-			av_new_packet(&mut new_packet, pkt.size);
-            av_copy_packet(&mut new_packet, pkt);
-
-            Packet(new_packet)
+			let mut new_packet: Packet = Packet::new(pkt.size as usize);
+            av_copy_packet(&mut *new_packet, pkt);
+            new_packet
         }
-    }
-}
-
-impl From<Box<AVPacket>> for Packet {
-    fn from(pkt: Box<AVPacket>) -> Packet {
-        unsafe {
-            let ptr = Box::into_raw(pkt);
-            let reference = &*ptr;
-            Packet::from(reference) 
-        }
-    }
-}
-
-impl From<AVPacket> for Packet {
-    fn from(pkt: AVPacket) -> Packet {
-        Packet(pkt)
     }
 }
 
 impl From<*mut AVPacket> for Packet {
     fn from(pkt: *mut AVPacket) -> Packet {
-        unsafe {
-            let mut new_packet: AVPacket = mem::zeroed();
-
-		    av_init_packet(&mut new_packet);
-		    av_new_packet(&mut new_packet, (*pkt).size);
-            av_copy_packet(&mut new_packet, pkt);
-
-            av_packet_unref(pkt);
-
-            Packet(new_packet)
-        }
+        Packet(pkt)
     }
 }
 
@@ -115,7 +84,7 @@ impl From<Vec<u8>> for Packet {
     fn from(pkt: Vec<u8>) -> Packet {
         unsafe {
             let packet = Packet::new(pkt.len());
-            let mut data = from_raw_parts_mut(packet.0.data, packet.0.size as usize);
+            let mut data = from_raw_parts_mut(packet.as_ref().data, packet.as_ref().size as usize);
 
             let _ = data.write(pkt.as_ref());
 
@@ -128,7 +97,7 @@ impl From<DataPacket> for Packet {
     fn from(pkt: DataPacket) -> Packet {
         unsafe {
             let mut packet = Packet::new(pkt.packet.len());
-            let mut data = from_raw_parts_mut(packet.0.data, packet.0.size as usize);
+            let mut data = from_raw_parts_mut(packet.as_ref().data, packet.as_ref().size as usize);
 
             let _ = data.write(pkt.packet.as_ref());
             packet.pts = pkt.pts;
@@ -141,20 +110,39 @@ impl From<DataPacket> for Packet {
 
 impl AsRef<AVPacket> for Packet {
     fn as_ref(&self) -> &AVPacket {
-        &self.0
+        unsafe {
+            &*self.0
+        }
     }
 }
 
 impl AsMut<AVPacket> for Packet {
     fn as_mut(&mut self) -> &mut AVPacket {
-        &mut self.0
+        unsafe {
+            &mut *self.0
+        }
+    }
+}
+
+impl Clone for Packet {
+
+    fn clone(&self) -> Self {
+        let mut pkt = Packet::new(self.as_ref().size as usize);
+        pkt.clone_from(self);
+        pkt
+    }
+
+    fn clone_from(&mut self, source: &Self) {
+        unsafe {
+            av_copy_packet(self.as_mut_ptr(), &**source);
+        }
     }
 }
 
 impl Drop for Packet {
     fn drop(&mut self) {
         unsafe {
-            av_packet_unref(&mut self.0)
+            av_packet_unref(self.0)
         }
     }
 }

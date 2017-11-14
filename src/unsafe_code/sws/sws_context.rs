@@ -115,7 +115,9 @@ impl AsMut<SwsContext> for SWSContext {
 impl Drop for SWSContext {
 	fn drop(&mut self) {
 		unsafe {
-			sws_freeContext(self.as_mut_ptr());
+            if !self.as_mut_ptr().is_null() {
+                sws_freeContext(self.as_mut_ptr());
+            }
 		}
 	}
 }

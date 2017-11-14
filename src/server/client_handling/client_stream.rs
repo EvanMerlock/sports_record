@@ -165,7 +165,7 @@ fn receive_video(conf: StreamConfiguration, mut read_channel: DualMessenger<TcpS
     let mut frames_read = 0;
     let mut completed_stream = false;
 
-    let file_path: String = String::from("output/video_") + &Uuid::new_v4().simple().to_string() + ".mp4";
+    let file_path: String = String::from("out/video_") + &Uuid::new_v4().simple().to_string() + ".mp4";
     let mut format_context: OutputContext = FormatContext::new_output(CString::new(file_path.as_str()).unwrap());
     println!("Created output context");
     let encoding_context = try!(EncodingCodecContext::create_encoding_context(CodecId::from(AVCodecID::AV_CODEC_ID_H264), conf.height, conf.width, conf.time_base, conf.gop_size, conf.max_b_frames));

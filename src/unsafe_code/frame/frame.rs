@@ -74,7 +74,9 @@ impl DerefMut for Frame {
 impl Drop for Frame {
     fn drop(&mut self) {
         unsafe {
-            av_frame_free(&mut self.0)
+            if !self.as_mut_ptr().is_null() {
+                av_frame_free(&mut self.0)
+            }
         }
     }
 }

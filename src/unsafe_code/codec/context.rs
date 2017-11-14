@@ -123,7 +123,9 @@ impl AsMut<AVCodecContext> for CodecContext {
 impl Drop for CodecContext {
     fn drop(&mut self) {
         unsafe {
-            avcodec_free_context(&mut self.as_mut_ptr());
+            if !self.as_mut_ptr().is_null() {
+                avcodec_free_context(&mut self.as_mut_ptr());
+            }
         }
     }
 }

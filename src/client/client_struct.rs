@@ -43,7 +43,7 @@ impl Client {
             match results {
                 Err(ref e) if e == &stream::Error::from(stream::ErrorKind::BufferEmpty) => {
                     println!("Server EOS");
-                    video_processing.stop();
+                    video_processing.server_disconnect();
                     stream_open = false;
                 },
                 Ok(v) => {
@@ -88,14 +88,14 @@ impl ClientVideoThreadHandler {
     fn new<'a>(mut write_channel: DualMessenger<TcpStream>, camera_config: CameraConfiguration, jpeg_sender: Sender<Arc<Vec<u8>>>) -> ClientVideoThreadHandler {
         let (instr_tx, instr_rx) = channel();
         let (tx, rx) = channel::<NetworkPacket>();
-        let send_video_handle = thread::spawn(|| {
+        let send_video_handle = thread::Builder::new().name("send_video_thread".to_string()).spawn(|| {
             println!("Send Video Completion Status: {:?}", send_video(camera_config, instr_rx, tx, jpeg_sender));
-        });
-        let write_video_handle = thread::spawn(move || {
+        }).unwrap();
+        let write_video_handle = thread::Builder::new().name("write_video_thread".to_string()).spawn(move || {
             for item in rx {
                 let _ = item.write_to(&mut write_channel);
             }
-        });
+        }).unwrap();
         ClientVideoThreadHandler {
             send_video_handle: Cell::new(send_video_handle),
             write_video_handle: Cell::new(write_video_handle),
@@ -103,11 +103,15 @@ impl ClientVideoThreadHandler {
         }
     }
 
-    fn start(&mut self) {
+    fn start(&self) {
         let _ = self.video_tunnel.send(ClientStatusFlag::StartRecording);
     }
 
-    fn stop(&mut self) {
+    fn stop(&self) {
         let _ = self.video_tunnel.send(ClientStatusFlag::StopRecording);
+    }
+
+    fn server_disconnect(&self) {
+        let _ = self.video_tunnel.send(ClientStatusFlag::ServerQuit);
     }
 }

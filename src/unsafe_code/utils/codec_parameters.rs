@@ -69,11 +69,3 @@ impl Clone for CodecParameters {
         pars
     }
 }
-
-impl Drop for CodecParameters {
-    fn drop(&mut self) {
-        unsafe {
-            avcodec_parameters_free(&mut self.0)
-        }
-    }
-}

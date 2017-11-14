@@ -4,6 +4,7 @@ use std::marker::{Send, Sync};
 pub enum ClientStatusFlag {
     StartRecording,
     StopRecording,
+    ServerQuit,
 }
 
 unsafe impl Send for ClientStatusFlag {}

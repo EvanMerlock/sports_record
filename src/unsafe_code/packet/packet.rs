@@ -142,7 +142,9 @@ impl Clone for Packet {
 impl Drop for Packet {
     fn drop(&mut self) {
         unsafe {
-            av_packet_unref(self.0)
+            if !self.as_mut_ptr().is_null() {
+                av_packet_unref(self.0)
+            }
         }
     }
 }

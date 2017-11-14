@@ -18,6 +18,7 @@ pub enum UnsafeErrorKind {
     ReceivePacket(i32),
 
     OpenInput(i32),
+    FindInputStream,
 
     OpenSWSContext,
     SWSError,
@@ -60,6 +61,7 @@ impl fmt::Display for UnsafeErrorKind {
             &UnsafeErrorKind::RecvError(ref e)            => e.fmt(fmter),
             &UnsafeErrorKind::TryRecvError(ref e)         => e.fmt(fmter),
             &UnsafeErrorKind::ReadMessageError(ref e)     => e.fmt(fmter),
+            &UnsafeErrorKind::FindInputStream             => write!(fmter, "A valid input stream wasn't found"),
         }
     }
 }

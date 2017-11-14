@@ -2,6 +2,7 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use std::sync::Arc;
+use std::cell::Cell;
 
 use std::ffi::CString;
 
@@ -31,51 +32,64 @@ pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver
     let mut input_context: InputContext = FormatContext::new_input(input_format, camera_config.get_camera_location())?;
 
     //Grab the stream from the input context
-    let opt = input_context.find_input_stream(0);
+    let mut in_str = input_context.find_input_stream(0).ok_or(UnsafeError::new(UnsafeErrorKind::FindInputStream))?;
 
-    if let Some(mut in_str) = opt {
-        let context_storage = try!(generate_contexts(&mut in_str));
-        let output_stream_configuration = StreamConfiguration::from(<EncodingCodecContext as AsRef<AVCodecContext>>::as_ref(&context_storage.encoding_context));
-        let _ = stream.send(NetworkPacket::JSONPayload(output_stream_configuration));
+    let context_storage = try!(generate_contexts(&mut in_str));
+    let output_stream_configuration = StreamConfiguration::from(<EncodingCodecContext as AsRef<AVCodecContext>>::as_ref(&context_storage.encoding_context));
+    let _ = stream.send(NetworkPacket::JSONPayload(output_stream_configuration));
 
-        let mut sender = jpeg_sender;
+    let mut sender = jpeg_sender;
 
-        let mut currently_recording = false;
-        loop {
-            let (packet_tx, packet_rx) = channel();
-            let render_thread_handle = spawn_thread(context_storage.clone(), stream.clone(), packet_rx, sender);
-            let mut packets_read = 0;
-            loop {
-                match message_transfer.try_recv() {
-                    Ok(ref m) if m == &ClientStatusFlag::StopRecording => {
-                        break;
-                    },
-                    Ok(ref m) if m == &ClientStatusFlag::StartRecording => {
-                        currently_recording = true;
-                    },
-                    Err(ref e) if !(e == &TryRecvError::Empty) => {
-                        break;
-                    }
-                    _ => {},
-                }
-                if currently_recording {
-                    let mut packet = input_context.read_input();
-                    packet.pts = packets_read;
-                    let _ = packet_tx.send(PacketMessage::Packet(packet));
-                    packets_read = packets_read + 1;                    
-                }
-            }
-            currently_recording = false;
-            println!("Read {} packets, now sending flush signal", packets_read);
-            let _ = packet_tx.send(PacketMessage::Flush);
-
-            sender = render_thread_handle.join().expect("couldn't join to thread");
+    let mut currently_recording = false;
+    let mut on_ending_frame = false;
+    let mut stream_open = true;
+    let mut packets_read = 0;
+    let mut render_thread_handle = Cell::new(Option::None);
+    let (packet_tx, packet_rx) = channel();
+    let mut sender_cell = Cell::new(packet_tx);
+    loop {
+        if !stream_open {
+            break;
         }
-        Ok(())
-    } else {
-        Err(UnsafeError::new(UnsafeErrorKind::OpenInput(1000)))
-    }
+        match message_transfer.try_recv() {
+            Ok(ref m) if m == &ClientStatusFlag::StopRecording => {
+                currently_recording = false;
+                on_ending_frame = true;
+            },
+            Ok(ref m) if m == &ClientStatusFlag::StartRecording => {
+                let (packet_tx, packet_rx) = channel();
+                sender_cell.replace(packet_tx);
+                // check if it's a render thread and panic if it is - desync occured
+                render_thread_handle.replace(Option::from(spawn_thread(context_storage.clone(), stream.clone(), packet_rx, sender.clone())));
+                packets_read = 0;
+                currently_recording = true;
+            },
+            Ok(ref m) if m == &ClientStatusFlag::ServerQuit => {
+                stream_open = false;
+                break;
+            } 
+            Err(ref e) if (e != &TryRecvError::Empty) => {
+                stream_open = false;
+                break;
+            } 
+            _ => {},
+        }
+        if currently_recording {
+            let mut packet = input_context.read_input();
+            packet.pts = packets_read;
+            let _ = sender_cell.get_mut().send(PacketMessage::Packet(packet));
+            packets_read = packets_read + 1;                    
+        }
 
+        if on_ending_frame {
+            println!("Read {} packets, now sending flush signal", packets_read);
+            let _ = sender_cell.get_mut().send(PacketMessage::Flush);
+
+            render_thread_handle.replace(Option::None).expect("desync").join().expect("couldn't join to thread");
+            on_ending_frame = false;
+        }
+    }
+    Ok(())
 }
 
 fn generate_contexts(stream: &mut Stream) -> Result<CodecStorage, UnsafeError> {

@@ -101,7 +101,9 @@ impl DerefMut for InputContext {
 impl Drop for InputContext {
     fn drop(&mut self) {
         unsafe {
-            avformat_close_input(&mut self.as_mut_ptr())
+            if !self.as_mut_ptr().is_null() {
+                avformat_close_input(&mut self.as_mut_ptr())
+            }
         }
     }
 }

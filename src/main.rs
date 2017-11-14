@@ -14,7 +14,7 @@ fn main() {
 
 fn run_server() -> Result<(), ServerError> {
     let sock_tuple = try!(strs_to_socket_tuple("127.0.0.1:8000", "127.0.0.1:8080"));
-    let server = try!(RecordingServer::new(sock_tuple, &Path::new("output/maindb.db")));
+    let server = try!(RecordingServer::new(sock_tuple, &Path::new("out/maindb.db")));
 
     let messenger = server.get_client_handler();
 

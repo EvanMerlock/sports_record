@@ -7,8 +7,7 @@ use std::io::Write;
 
 use std::slice::{from_raw_parts_mut, from_raw_parts};
 
-use unsafe_code::{Rational, AsRawPtr};
-use unsafe_code::packet::DataPacket;
+use unsafe_code::{Rational, AsRawPtr, DataPacket};
 
 use ffmpeg_sys::*;
 

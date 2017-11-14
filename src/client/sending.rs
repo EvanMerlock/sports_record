@@ -12,7 +12,6 @@ use config::client_configuration::CameraConfiguration;
 use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational, CodecId, Frame};
 use unsafe_code::format::{FormatContext, InputContext, Stream};
 use unsafe_code::sws::SWSContext;
-use unsafe_code::img_processing;
 use unsafe_code::{Packet, DataPacket, EncodingCodecContext, DecodingCodecContext};
 use config::stream_config::StreamConfiguration;
 use networking::NetworkPacket;

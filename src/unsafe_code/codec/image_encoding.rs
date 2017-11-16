@@ -1,10 +1,6 @@
-use std::io::Write;
-use std::fs::File;
-
 use std::slice::from_raw_parts;
-use std::ptr;
 
-use unsafe_code::{UnsafeError, UnsafeErrorKind, Codec, CodecId, CodecContext, Rational, Packet, Frame, EncodingCodecContext, EncodingCodec, AsRawPtr};
+use unsafe_code::{UnsafeError, UnsafeErrorKind, Codec, CodecId, CodecContext, Rational, Frame, EncodingCodecContext, AsRawPtr};
 
 use ffmpeg_sys::*;
 

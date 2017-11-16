@@ -19,7 +19,7 @@ use router::Router;
 pub struct RecordingServer {
     listener: Arc<TcpListener>,
     iron_server: Listening,
-    sql_db: Arc<Connection>,
+    sql_db: Arc<Mutex<Connection>>,
     client_handler: ClientHandler,
 }
 
@@ -48,7 +48,7 @@ impl RecordingServer {
             Ok(item) => return Ok(RecordingServer { 
                 listener: Arc::new(tcp), 
                 iron_server: item, 
-                sql_db: Arc::new(connection),
+                sql_db: Arc::new(Mutex::new(connection)),
                 client_handler: ClientHandler::new(Arc::new(Mutex::new(client_stream))),
             }),
             Err(_) => return Err(ServerError::new(ServerErrorKind::IronError)),

@@ -197,14 +197,14 @@ fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger
                 frames_read = 0;
             },
             Err(ref e) if (e != &TryRecvError::Empty) => {
-                stream_open = false;
+                eprintln!("An unexpected error occured within the server. Please restart the server and the client");
                 break;
             }
             _ => {},
         }
 
         if currently_recv {
-            let mut res = read_channel.read_next_message();
+            let res = read_channel.read_next_message();
             match res {
                 Err(ref e) if e == &stream::Error::from(stream::ErrorKind::BufferEmpty) => {
                     println!("Read {} messages from stream, now reached EOS.", frames_read);

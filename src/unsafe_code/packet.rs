@@ -1,7 +1,5 @@
 use std::marker::{Send, Sync};
 use std::convert::{From};
-use std::mem;
-use std::ptr;
 use std::ops::{Drop, Deref, DerefMut};
 use std::io::Write;
 
@@ -19,7 +17,7 @@ unsafe impl Sync for Packet {}
 impl Packet {
     pub fn new(size: usize) -> Packet {
 		unsafe {
-			let mut pkt: *mut AVPacket = av_packet_alloc();
+			let pkt: *mut AVPacket = av_packet_alloc();
 			av_new_packet(pkt, size as i32);
 
 			Packet(pkt)

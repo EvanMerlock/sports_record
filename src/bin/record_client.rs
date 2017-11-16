@@ -1,6 +1,6 @@
 extern crate sports_record;
 
-use std::net::{SocketAddr, AddrParseError};
+use std::net::{SocketAddr};
 use std::str::FromStr;
 use std::env;
 use std::path::Path;

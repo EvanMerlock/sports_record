@@ -1,14 +1,10 @@
-use std::io::{ Write, Error, Read };
-use std::fs::{ File };
-use std::fs::read_dir;
-use std::path::{ Path, PathBuf };
+use std::io::{ Write, Error };
 
 use iron::prelude::*;
 use iron::headers::ContentType;
 use iron::status;
 use iron::modifier;
 use iron::response::WriteBody;
-use router::Router;
 
 use liquid;
 use liquid::{Context, Value, Renderable};

@@ -1,7 +1,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::thread;
 use std::thread::JoinHandle;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use std::sync::mpsc::{channel, Sender};
 use std::cell::Cell;
 
@@ -34,7 +34,7 @@ impl Client {
         let write_stream = try!(self.stream.try_clone());
         let mut read_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), read_stream);
         let write_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), write_stream);
-        let mut video_processing = ClientVideoThreadHandler::new(write_channel, camera_config, arc_sender);
+        let video_processing = ClientVideoThreadHandler::new(write_channel, camera_config, arc_sender);
 
         let mut stream_open = true;
         

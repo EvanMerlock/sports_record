@@ -1,14 +1,12 @@
-use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
+use std::sync::mpsc::{channel, Sender};
 
 use std::io;
-use std::io::{Write, Read, BufRead};
-use std::net::{TcpListener, TcpStream, SocketAddr, Shutdown};
+use std::net::{TcpStream, SocketAddr};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 use websocket::server::sync::{Server};
 use websocket::client::sync::{Client};
-use websocket::server::NoTlsAcceptor;
 use websocket::Message;
 
 use client::web::body_writer;
@@ -35,7 +33,7 @@ impl WebHandler {
         let iron_server_res = Iron::new(router).http(sock.1).expect("failed to start stream server");
 
         let (tx, rx) = channel::<Arc<Vec<u8>>>();
-        let mut clients = Arc::new(Mutex::new(Vec::new()));
+        let clients = Arc::new(Mutex::new(Vec::new()));
         let cloned_clients = Arc::clone(&clients);
         thread::spawn(move || {
             for upgrade_res in server {
@@ -45,10 +43,10 @@ impl WebHandler {
                             let client = upgrade.use_protocol("sports_record_jpeg_proto").accept().expect("failed to open client");
                             cloned_clients.lock().expect("failed to lock mutex").push(WebClient::new(client));
                         } else {
-                            upgrade.reject();
+                            let _ = upgrade.reject();
                         }
                     },
-                    Err(e) => {},
+                    Err(_) => {},
                 }
             };
         });
@@ -80,11 +78,11 @@ impl WebClient {
             let stream_connected = true;
             while stream_connected {
                 match rx.try_recv() {
-                    Ok(item) => { stream.send_message(&Message::text(format!("data:image/png;base64,{}", base64::encode(item.as_slice())))); },
+                    Ok(item) => { let _ = stream.send_message(&Message::text(format!("data:image/png;base64,{}", base64::encode(item.as_slice())))); },
                     _ => {},
                 }
             }
-            stream.shutdown();
+            let _ = stream.shutdown();
             Ok(stream)
         });
         WebClient {
@@ -94,6 +92,6 @@ impl WebClient {
     }
 
     fn send_frame(&self, item: Arc<Vec<u8>>) {
-        self.data_sender.send(item);
+        let _ = self.data_sender.send(item);
     } 
 }

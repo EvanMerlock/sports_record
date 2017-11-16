@@ -4,8 +4,6 @@ use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use std::sync::Arc;
 use std::cell::Cell;
 
-use std::ffi::CString;
-
 use client::ClientStatusFlag;
 
 use config::client_configuration::CameraConfiguration;
@@ -37,19 +35,15 @@ pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver
     let output_stream_configuration = StreamConfiguration::from(<EncodingCodecContext as AsRef<AVCodecContext>>::as_ref(&context_storage.encoding_context));
     let _ = stream.send(NetworkPacket::JSONPayload(output_stream_configuration));
 
-    let mut sender = jpeg_sender;
+    let sender = jpeg_sender;
 
     let mut currently_recording = false;
     let mut on_ending_frame = false;
-    let mut stream_open = true;
     let mut packets_read = 0;
-    let mut render_thread_handle = Cell::new(Option::None);
-    let (packet_tx, packet_rx) = channel();
+    let render_thread_handle = Cell::new(Option::None);
+    let (packet_tx, _) = channel();
     let mut sender_cell = Cell::new(packet_tx);
     loop {
-        if !stream_open {
-            break;
-        }
         match message_transfer.try_recv() {
             Ok(ref m) if m == &ClientStatusFlag::StopRecording => {
                 currently_recording = false;
@@ -64,11 +58,11 @@ pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver
                 currently_recording = true;
             },
             Ok(ref m) if m == &ClientStatusFlag::ServerQuit => {
-                stream_open = false;
+                eprintln!("The server has been closed, so the client will now exit the sending routine.");
                 break;
             } 
             Err(ref e) if (e != &TryRecvError::Empty) => {
-                stream_open = false;
+                eprintln!("An internal error has occured. Please restart the server and client");
                 break;
             } 
             _ => {},
@@ -159,7 +153,7 @@ fn transcode_packet(contexts: &mut CodecStorage, png_sender: &Sender<Arc<Vec<u8>
     println!("current frame pts: {}", scaled_frame.pts);
 
     match contexts.png_context.encode_png_frame(&png_frame) {
-        Ok(e) => { png_sender.send(Arc::new(e)); },
+        Ok(e) => { let _ = png_sender.send(Arc::new(e)); },
         Err(e) => println!("{:?}", e),
     }
 

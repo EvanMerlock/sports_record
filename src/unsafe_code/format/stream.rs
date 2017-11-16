@@ -12,7 +12,7 @@ use ffmpeg_sys::*;
 pub struct Stream(*mut AVStream);
 
 impl Stream {
-    pub fn new<T: AsRef<CodecContext> + Sized>(fmt: &mut OutputContext, code: T) -> Stream {
+    pub fn new<T: AsRef<CodecContext> + Sized>(fmt: &mut OutputContext, code: &T) -> Stream {
         unsafe {
             let stream = avformat_new_stream(fmt.as_mut_ptr(), ptr::null());
             let mut s = Stream(stream);

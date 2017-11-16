@@ -2,9 +2,10 @@ use std::net::{TcpStream, SocketAddr, Shutdown};
 use std::thread;
 use std::thread::JoinHandle;
 use std::result::Result;
-use std::sync::mpsc::{Sender, Receiver, channel};
+use std::sync::mpsc::{Sender, Receiver, channel, TryRecvError};
 use std::io::Write;
 use std::cell::Cell;
+use std::default::Default;
 
 use std::ffi::CString;
 
@@ -131,7 +132,7 @@ fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>
     println!("Retreived stream configuration from client {}", stream.peer_addr()?);
     println!("{:?}", unwrapped_config);
 
-    let mut stcth = ServerToClientThreadHandler::new(unwrapped_config, read_channel);
+    let mut stcth = LoopingThreadHandler::new(unwrapped_config, read_channel);
 
     while !currently_cleaning {
         loop {
@@ -143,7 +144,7 @@ fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>
                 },
                 RecordingInstructions::StopRecording => {
                     let _ = write_channel.write(b"STOP");
-                    stcth.stop(DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), stream.try_clone()?));
+                    stcth.stop();
                 }
                 RecordingInstructions::Cleanup => {
                     currently_cleaning = true;
@@ -158,93 +159,123 @@ fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>
     Ok(())
 }
 
-fn receive_video(conf: StreamConfiguration, mut read_channel: DualMessenger<TcpStream>, instr_recv: Receiver<TranslatedRecordingInstructions>) -> Result<i32, ServerError> {
+fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger<TcpStream>, instr_recv: Receiver<TranslatedRecordingInstructions>) -> Result<(), ServerError> {
 
-    let _ = try!(instr_recv.recv());
-
+    let mut currently_recv = false;
+    let mut on_ending_payload = false;
+    let mut stream_open = true;
     let mut frames_read = 0;
-    let mut completed_stream = false;
+    let mut current_output_context = Cell::new(Option::None);
+    let stream_timebase = Cell::new(Rational::default());
+    let stream_index = Cell::new(0);
 
-    let file_path: String = String::from("out/video_") + &Uuid::new_v4().simple().to_string() + ".mp4";
-    let mut format_context: OutputContext = FormatContext::new_output(CString::new(file_path.as_str()).unwrap());
-    println!("Created output context");
-    let encoding_context = try!(EncodingCodecContext::create_encoding_context(CodecId::from(AVCodecID::AV_CODEC_ID_H264), conf.height, conf.width, conf.time_base, conf.gop_size, conf.max_b_frames));
-    let pkt_stream = format_context.create_stream(encoding_context);
 
-    let stream_index = pkt_stream.index;
-                
-    println!("Created output video stream");
-    try!(format_context.open_video_file(file_path.as_ref()));
-    println!("Opened video file: {}", file_path.as_str());
-    try!(format_context.write_video_header());
-    println!("Wrote video header");
+    let encoding_context = EncodingCodecContext::create_encoding_context(CodecId::from(AVCodecID::AV_CODEC_ID_H264), conf.height, conf.width, conf.time_base, conf.gop_size, conf.max_b_frames)?;
+    println!("Created encoding context");
 
-    let stream_timebase = Rational::from(pkt_stream.time_base);
-    while !completed_stream {
-        let results = read_channel.read_next_message();
+    // internal loop
+    loop {
+        if !stream_open {
+            break;
+        }
 
-        match results {
-            Err(ref e) if e == &stream::Error::from(stream::ErrorKind::BufferEmpty) => {
-                println!("Read {} messages from stream, now reached EOS.", frames_read);
-                completed_stream = true;
-            }
-            Ok(v) => {
-                frames_read = frames_read + 1;
-                let data_packet_attempt = serde_json::from_slice::<NetworkPacket>(v.as_slice()).map_err(|x| UnsafeError::from(x));
-                match data_packet_attempt {
-                    Ok(network_packet) => {
-                        match network_packet {
-                            NetworkPacket::PacketStream(pkts) => {
-                                for mut pkt in pkts.into_iter().map(|x| Packet::from(x)) {
-                                    println!("Recieved packet from client with pts {}", pkt.pts);
-                                    pkt.rescale_to(Rational::new(1,30), stream_timebase);
-                                    //pkt.dts = pkt.pts;
-                                    let _ = format_context.write_video_frame(stream_index, pkt)?;
-                                }
-                            },
-                            NetworkPacket::PayloadEnd => {
-                                println!("Received EOP Indicator");
-                                completed_stream = true;
-                                continue;
-                            },
-                            _ => eprintln!("Unexpected Network Packet Type!"),
-                        }
-                    },
-                    Err(e) => eprintln!("{:?}, {:?}", e, v.as_slice()),
-                }
+        match instr_recv.try_recv() {
+            Ok(ref m) if m == &TranslatedRecordingInstructions::Start => {
+                currently_recv = true;
+                let file_path: String = String::from("out/video_") + &Uuid::new_v4().simple().to_string() + ".mp4";
+                let mut format_context: OutputContext = FormatContext::new_output(CString::new(file_path.as_str()).unwrap());
+                println!("Created output context");
+                let pkt_stream = format_context.create_stream(&encoding_context);
+                println!("Created output video stream");
+                try!(format_context.open_video_file(file_path.as_ref()));
+                println!("Opened video file: {}", file_path.as_str());
+                try!(format_context.write_video_header());
+                println!("Wrote video header");
+                current_output_context.replace(Option::Some(format_context));
+                stream_index.replace(pkt_stream.index);
+                stream_timebase.replace(Rational::from(pkt_stream.time_base));
+                frames_read = 0;
             },
-            Err(e) => {
-                return Err(ServerError::from(UnsafeError::from(e)));
+            Err(ref e) if (e != &TryRecvError::Empty) => {
+                stream_open = false;
+                break;
+            }
+            _ => {},
+        }
+
+        if currently_recv {
+            let mut res = read_channel.read_next_message();
+            match res {
+                Err(ref e) if e == &stream::Error::from(stream::ErrorKind::BufferEmpty) => {
+                    println!("Read {} messages from stream, now reached EOS.", frames_read);
+                    currently_recv = false;
+                    on_ending_payload = true;
+                },
+                Ok(v) => {
+                    frames_read = frames_read + 1;
+                    let data_packet_attempt = serde_json::from_slice::<NetworkPacket>(v.as_slice()).map_err(|x| UnsafeError::from(x));
+                    match data_packet_attempt {
+                        Ok(network_packet) => {
+                            match network_packet {
+                                NetworkPacket::PacketStream(pkts) => {
+                                    for mut pkt in pkts.into_iter().map(|x| Packet::from(x)) {
+                                        println!("Recieved packet from client with pts {}", pkt.pts);
+                                        pkt.rescale_to(Rational::new(1,30), stream_timebase.get());
+                                        let mut format_context = current_output_context.get_mut().as_mut().expect("desync");
+                                        let _ = format_context.write_video_frame(stream_index.get(), pkt)?;
+                                    }
+                                },
+                                NetworkPacket::PayloadEnd => {
+                                    println!("Received EOP Indicator");
+                                    on_ending_payload = true;
+                                    currently_recv = false;
+                                    continue;
+                                },
+                                _ => eprintln!("Unexpected Network Packet Type!"),
+                            }
+                        },
+                        Err(e) => eprintln!("{:?}, {:?}", e, v.as_slice()),
+                    }
+                },
+                Err(e) => {
+                    return Err(ServerError::from(UnsafeError::from(e)));
+                }
             }
         }
+
+        if on_ending_payload {
+            let mut temp_context = current_output_context.replace(Option::None);
+            let mut format_context = temp_context.as_mut().expect("desync");
+            println!("Current read ended, {} frames read.", frames_read);
+            try!(format_context.write_null_video_frame());
+            try!(format_context.write_video_trailer());
+            println!("Wrote video trailer and null video frame");
+            on_ending_payload = false;
+        }
     }
-    println!("Current read ended, {} frames read.", frames_read);
-    try!(format_context.write_null_video_frame());
-    try!(format_context.write_video_trailer());
-    println!("Wrote video trailer and null video frame");
-    Ok(frames_read)
+    Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum TranslatedRecordingInstructions {
     Start,
     Stop,
 }
 
-struct ServerToClientThreadHandler {
-    rec_vid_thread: Cell<JoinHandle<Result<i32, ServerError>>>,
+struct LoopingThreadHandler {
+    rec_vid_thread: JoinHandle<Result<(), ServerError>>,
     instr_tun: Sender<TranslatedRecordingInstructions>,
     conf: StreamConfiguration,
 }
 
-impl ServerToClientThreadHandler {
-    fn new(conf: StreamConfiguration, read_channel: DualMessenger<TcpStream>) -> ServerToClientThreadHandler {
+impl LoopingThreadHandler {
+    fn new(conf: StreamConfiguration, read_channel: DualMessenger<TcpStream>) -> LoopingThreadHandler {
         let (send, recv) = channel();
         let rec_vid_thread = thread::spawn(move || {
-            receive_video(conf, read_channel, recv)
+            looping_recv_video(conf, read_channel, recv)
         });
-        ServerToClientThreadHandler {
-            rec_vid_thread: Cell::new(rec_vid_thread),
+        LoopingThreadHandler {
+            rec_vid_thread: rec_vid_thread,
             instr_tun: send,
             conf: conf,
         }
@@ -254,13 +285,7 @@ impl ServerToClientThreadHandler {
         let _ = self.instr_tun.send(TranslatedRecordingInstructions::Start);
     }
 
-    fn stop(&mut self, read_channel: DualMessenger<TcpStream>) {
-        let (instr_tx, instr_rx) = channel();
-        let pass_conf = self.conf.clone();
-        let rec_vid_thread = thread::spawn(move || {
-            receive_video(pass_conf, read_channel, instr_rx)
-        });
-        self.instr_tun = instr_tx;
-        println!("{:?}", self.rec_vid_thread.replace(rec_vid_thread).join());
+    fn stop(&mut self) {
+        let _ = self.instr_tun.send(TranslatedRecordingInstructions::Stop);
     }
 }

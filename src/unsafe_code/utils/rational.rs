@@ -1,5 +1,6 @@
 use std::marker::{Send, Sync};
 use std::convert::{From, Into};
+use std::default::Default;
 
 use ffmpeg_sys::*;
 
@@ -24,6 +25,12 @@ impl From<AVRational> for Rational {
 impl Into<AVRational> for Rational {
     fn into(self) -> AVRational {
         make_av_rational(self.0, self.1)
+    }
+}
+
+impl Default for Rational {
+    fn default() -> Self {
+        Rational::new(0, 0)
     }
 }
 

@@ -12,13 +12,13 @@ use ffmpeg_sys::*;
 pub struct OutputContext(FormatContext);
 
 impl OutputContext {
-    unsafe fn add_new_stream<T: AsRef<CodecContext> + Sized>(&mut self, pars: T) -> Stream {
+    unsafe fn add_new_stream<T: AsRef<CodecContext> + Sized>(&mut self, pars: &T) -> Stream {
         let mut stream = Stream::new(self, pars);
         stream.id = (self.nb_streams - 1) as i32;
         stream
     }
 
-    pub fn create_stream<T: AsRef<CodecContext> + Sized>(&mut self, pars: T) -> Stream {
+    pub fn create_stream<T: AsRef<CodecContext> + Sized>(&mut self, pars: &T) -> Stream {
         unsafe {
             self.add_new_stream(pars)
         }

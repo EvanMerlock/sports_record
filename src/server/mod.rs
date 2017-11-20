@@ -1,6 +1,7 @@
 mod errors;
 mod recording_server;
 mod web;
+mod sql;
 
 pub mod client_handling;
 

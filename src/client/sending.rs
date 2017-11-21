@@ -62,7 +62,7 @@ pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver
                 break;
             } 
             Err(ref e) if (e != &TryRecvError::Empty) => {
-                eprintln!("An internal error has occured. Please restart the server and client");
+                eprintln!("An internal error has occured. Please restart the server and client {:?}", e);
                 break;
             } 
             _ => {},

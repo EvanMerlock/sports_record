@@ -23,17 +23,15 @@ fn run_server() -> Result<(), ServerError> {
     let stdin = stdin();
     let line_lock = stdin.lock();
 
-    let mut current_clip = 1;
 
     for line in line_lock.lines() {
         let unwrapped_line = try!(line);
         if unwrapped_line == "START" {
             println!("Starting recording");
-            let _ = messenger.start_recording(current_clip);
+            let _ = messenger.start_recording();
         } else if unwrapped_line == "STOP" {
             println!("Stopping recording");
             let _ = messenger.stop_recording();
-            current_clip = current_clip + 1;
         } else if unwrapped_line == "CLEAN" {
             println!("Stopping server");
             let _ = messenger.clean_up();

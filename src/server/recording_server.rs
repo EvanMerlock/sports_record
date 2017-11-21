@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use server::client_handling::*;
 use server::web;
-use server::{ ServerError, ServerErrorKind };
+use server::{ ServerError, ServerErrorKind, sql };
 
 use unsafe_code::init_av;
 
@@ -19,7 +19,6 @@ use router::Router;
 pub struct RecordingServer {
     listener: Arc<TcpListener>,
     iron_server: Listening,
-    sql_db: Arc<Mutex<Connection>>,
     client_handler: ClientHandler,
 }
 
@@ -32,8 +31,7 @@ impl RecordingServer {
             let _ = try!(File::create(db_loc));
         }
 
-        let connection = try!(Connection::open(db_loc.to_owned()));
-        try!(connection.execute("CREATE TABLE IF NOT EXISTS videos (id INTEGER, uuid TEXT)", &[]));
+        let database = sql::DatabaseRef::new(db_loc)?;
 
         let mut router = Router::new();
         router.get("/", web::web_handler::home_handler, "index");
@@ -42,13 +40,12 @@ impl RecordingServer {
         let iron_serv_res = Iron::new(router).http(ip_tuple.1);
 
         init_av();
-        let client_stream = try!(ClientStream::new());
+        let client_stream = try!(ClientStream::new(database));
 
         match iron_serv_res {
             Ok(item) => return Ok(RecordingServer { 
                 listener: Arc::new(tcp), 
                 iron_server: item, 
-                sql_db: Arc::new(Mutex::new(connection)),
                 client_handler: ClientHandler::new(Arc::new(Mutex::new(client_stream))),
             }),
             Err(_) => return Err(ServerError::new(ServerErrorKind::IronError)),
@@ -86,9 +83,9 @@ impl ClientHandler {
         ClientHandler(internal)
     }
 
-    pub fn start_recording(&self, i: u32) {
+    pub fn start_recording(&self) {
         let lock = self.0.lock().unwrap();
-        lock.start_recording(i);
+        lock.start_recording();
     }
 
     pub fn stop_recording(&self) {

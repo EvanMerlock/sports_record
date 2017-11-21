@@ -1,10 +1,13 @@
 extern crate sports_record;
 
+use std::env;
 use std::net::{SocketAddr, AddrParseError};
 use std::str::FromStr;
 use std::path::Path;
+use std::fs::File;
 use std::io::{stdin, BufRead};
 
+use sports_record::config::server_configuration::ServerConfiguration;
 use sports_record::server::ServerError;
 use sports_record::server::RecordingServer;
 
@@ -13,8 +16,24 @@ fn main() {
 }
 
 fn run_server() -> Result<(), ServerError> {
-    let sock_tuple = try!(strs_to_socket_tuple("127.0.0.1:8000", "127.0.0.1:8080"));
-    let server = try!(RecordingServer::new(sock_tuple, &Path::new("out/maindb.db")));
+
+    let configuration_location: String = match env::var("SR_SERVERCONF_LOC") {
+        Ok(item) => item,
+        Err(ref e) if e == &env::VarError::NotPresent => String::from("sr_server_config.toml"),
+        Err(e) => return Err(ServerError::from(e)),
+    };
+    let config_path = Path::new(&configuration_location);
+    let server_config: ServerConfiguration = 
+        if config_path.exists() {
+            let fs = File::open(config_path)?;
+            ServerConfiguration::from(fs)?
+        } else {
+            let fs = File::create(config_path)?;
+            let cfg = ServerConfiguration::default();
+            cfg.write_to(fs)?;
+            cfg
+        }; 
+    let server = RecordingServer::new(server_config)?;
 
     let messenger = server.get_client_handler();
 

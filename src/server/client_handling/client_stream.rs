@@ -26,6 +26,7 @@ use ffmpeg_sys::*;
 pub struct ClientStream {
     current_clients: Vec<ClientThreadInformation>,
     db_access: sql::DatabaseRef,
+    out_dir: String
 }
 
 pub struct ClientThreadInformation {
@@ -48,10 +49,10 @@ pub enum RecordingInstructions {
 }
 
 impl ClientThreadInformation {
-    pub fn new(sock: SocketAddr, tcp_stream: TcpStream, db_ref: sql::DatabaseRef) -> ClientThreadInformation {
+    pub fn new(sock: SocketAddr, tcp_stream: TcpStream, db_ref: sql::DatabaseRef, out_dir: String) -> ClientThreadInformation {
         let (send, recv) = channel();
         let thread_handle = thread::spawn(move || {
-            let val = client_write_handler(tcp_stream, recv, db_ref);
+            let val = client_write_handler(tcp_stream, recv, db_ref, out_dir);
             println!("{:?}", val);
         });
         ClientThreadInformation { socket_addr: sock, thread_handle: thread_handle, thread_channel: send }
@@ -66,17 +67,18 @@ impl Drop for ClientThreadInformation {
 
 impl ClientStream {
 
-    pub fn new(db_ref: sql::DatabaseRef) -> Result<ClientStream, ServerError> {
+    pub fn new(db_ref: sql::DatabaseRef, out_dir: String) -> Result<ClientStream, ServerError> {
         let stream = ClientStream {
             current_clients: vec![],
             db_access: db_ref,
+            out_dir: out_dir,
         };
         Ok(stream)
     }
 
     pub fn add_client(&mut self, info: TcpStream) -> Result<(), ServerError> {
         let socket_addr = try!(info.peer_addr());
-        self.current_clients.push(ClientThreadInformation::new(socket_addr, info, self.db_access.clone()));
+        self.current_clients.push(ClientThreadInformation::new(socket_addr, info, self.db_access.clone(), self.out_dir.clone()));
         Ok(())
     }
 
@@ -116,7 +118,7 @@ impl ClientStream {
 
 }
 
-fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>, db_ref: sql::DatabaseRef) -> Result<(), ServerError> {
+fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>, db_ref: sql::DatabaseRef, out_dir: String) -> Result<(), ServerError> {
 
     let mut currently_cleaning = false;
 
@@ -136,7 +138,7 @@ fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>
     println!("Retreived stream configuration from client {}", stream.peer_addr()?);
     println!("{:?}", unwrapped_config);
 
-    let mut stcth = LoopingThreadHandler::new(unwrapped_config, read_channel, db_ref);
+    let mut stcth = LoopingThreadHandler::new(unwrapped_config, read_channel, db_ref, out_dir);
 
     while !currently_cleaning {
         loop {
@@ -163,7 +165,7 @@ fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>
     Ok(())
 }
 
-fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger<TcpStream>, instr_recv: Receiver<TranslatedRecordingInstructions>, db_ref: sql::DatabaseRef) -> Result<(), ServerError> {
+fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger<TcpStream>, instr_recv: Receiver<TranslatedRecordingInstructions>, db_ref: sql::DatabaseRef, out_dir: String) -> Result<(), ServerError> {
 
     let mut currently_recv = false;
     let mut on_ending_payload = false;
@@ -188,7 +190,7 @@ fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger
                 currently_recv = true;
                 let uuid: String = Uuid::new_v4().simple().to_string();
                 (&db_ref).insert_clip(&uuid)?;
-                let file_path: String = String::from("out/video_") + &uuid + ".mp4";
+                let file_path: String = out_dir.clone() + "/video_" + &uuid + ".mp4";
                 let mut format_context: OutputContext = FormatContext::new_output(CString::new(file_path.as_str()).unwrap());
                 println!("Created output context");
                 let pkt_stream = format_context.create_stream(&encoding_context);
@@ -203,7 +205,7 @@ fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger
                 frames_read = 0;
             },
             Err(ref e) if (e != &TryRecvError::Empty) => {
-                eprintln!("An unexpected error occured within the server. Please restart the server and the client");
+                eprintln!("An unexpected error occured within the server. Please restart the server and the client {:?}", e);
                 break;
             }
             _ => {},
@@ -275,10 +277,10 @@ struct LoopingThreadHandler {
 }
 
 impl LoopingThreadHandler {
-    fn new(conf: StreamConfiguration, read_channel: DualMessenger<TcpStream>, db_ref: sql::DatabaseRef) -> LoopingThreadHandler {
+    fn new(conf: StreamConfiguration, read_channel: DualMessenger<TcpStream>, db_ref: sql::DatabaseRef, out_dir: String) -> LoopingThreadHandler {
         let (send, recv) = channel();
         let rec_vid_thread = thread::spawn(move || {
-            let x = looping_recv_video(conf, read_channel, recv, db_ref);
+            let x = looping_recv_video(conf, read_channel, recv, db_ref, out_dir);
             println!("{:?}", x);
             x
         });

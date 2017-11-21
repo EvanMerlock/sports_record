@@ -5,6 +5,9 @@ use std::io;
 use std::str;
 use std::net::AddrParseError;
 use std::sync::mpsc::RecvError;
+use std::env;
+
+use config::server_configuration::ServerConfigurationError;
 
 use unsafe_code::UnsafeError;
 
@@ -19,6 +22,9 @@ pub enum ServerErrorKind {
     AddrParseErr(AddrParseError),
     UnsafeError(UnsafeError),
     RecvError(RecvError),
+    EnvVarError(env::VarError),
+    ServerConfigError(ServerConfigurationError),
+
 }
 
 impl fmt::Display for ServerErrorKind {
@@ -31,6 +37,8 @@ impl fmt::Display for ServerErrorKind {
             &ServerErrorKind::AddrParseErr(ref err) => err.fmt(fmter),
             &ServerErrorKind::UnsafeError(ref err) => err.fmt(fmter),
             &ServerErrorKind::RecvError(ref err) => err.fmt(fmter),
+            &ServerErrorKind::EnvVarError(ref err) => err.fmt(fmter),
+            &ServerErrorKind::ServerConfigError(ref err) => err.fmt(fmter),
         }
     }
 }
@@ -95,5 +103,17 @@ impl From<UnsafeError> for ServerError {
 impl From<RecvError> for ServerError {
     fn from(err: RecvError) -> ServerError {
         ServerError::new(ServerErrorKind::RecvError(err))
+    }
+}
+
+impl From<ServerConfigurationError> for ServerError {
+    fn from(err: ServerConfigurationError) -> ServerError {
+        ServerError::new(ServerErrorKind::ServerConfigError(err))
+    }
+}
+
+impl From<env::VarError> for ServerError {
+    fn from(err: env::VarError) -> ServerError {
+        ServerError::new(ServerErrorKind::EnvVarError(err))
     }
 }

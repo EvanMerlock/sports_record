@@ -16,7 +16,11 @@ fn main() {
 }
 
 fn run_client() -> Result<(), ClientError> {
-    let configuration_location = env::var("SR_RECORDING_LOCATION")?;
+    let configuration_location: String = match env::var("SR_CLIENTCONF_LOC") {
+        Ok(item) => item,
+        Err(ref e) if e == &env::VarError::NotPresent => String::from("sr_client_config.toml"),
+        Err(e) => return Err(ClientError::from(e)),
+    };    
     let config_path = Path::new(&configuration_location);
     let client_config = 
         if config_path.exists() {

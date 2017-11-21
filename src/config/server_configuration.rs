@@ -2,12 +2,13 @@ use std::net;
 use std::io::{Write, Read};
 use std::io;
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
 use toml;
 use std::fmt;
 use std::error::Error;
 use std::ffi::CString;
 use std::default::Default;
+use std::net::SocketAddr;
 
 #[derive(Debug)]
 pub enum ServerConfigurationError {
@@ -19,9 +20,9 @@ pub enum ServerConfigurationError {
 impl fmt::Display for ServerConfigurationError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            ClientConfigurationError::TOMLDEError(ref e) => e.fmt(f),
-            ClientConfigurationError::TOMLSERError(ref e) => e.fmt(f),
-            ClientConfigurationError::IOError(ref e) => e.fmt(f),
+            ServerConfigurationError::TOMLDEError(ref e) => e.fmt(f),
+            ServerConfigurationError::TOMLSERError(ref e) => e.fmt(f),
+            ServerConfigurationError::IOError(ref e) => e.fmt(f),
         }
     } 
 }
@@ -78,12 +79,28 @@ impl ServerConfiguration {
         Ok(())
     }
 
-    pub fn get_name(&self) -> &str {
-        &self.name
+    pub fn get_team_name(&self) -> &str {
+        &self.team_name
     }
 
-    pub fn get_mjpeg_address(&self) -> &net::SocketAddr {
-        &self.mjpeg_address
+    pub fn get_clip_server_port(&self) -> &SocketAddr {
+        &self.clip_server_port
+    }
+
+    pub fn get_web_server_port(&self) -> &SocketAddr {
+        &self.web_server_port
+    }
+
+    pub fn get_discovery_port(&self) -> &SocketAddr {
+        &self.discovery_port
+    }
+
+    pub fn get_output_directory(&self) -> &Path {
+        &self.output_directory
+    }
+
+    pub fn get_database_name(&self) -> &str {
+        &self.database_name
     }
 
 }

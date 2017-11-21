@@ -16,6 +16,8 @@ use iron::prelude::*;
 use iron::Listening;
 use router::Router;
 
+use config::server_configuration::ServerConfiguration;
+
 pub struct RecordingServer {
     listener: Arc<TcpListener>,
     iron_server: Listening,
@@ -24,29 +26,31 @@ pub struct RecordingServer {
 
 impl RecordingServer {
 
-    pub fn new(ip_tuple: (SocketAddr, SocketAddr), db_loc: &Path) -> Result<RecordingServer, ServerError> {
-        let tcp = try!(TcpListener::bind(ip_tuple.0));
+    pub fn new(server_conf: ServerConfiguration) -> Result<RecordingServer, ServerError> {
+        let tcp = TcpListener::bind(server_conf.get_clip_server_port())?;
+        let db_loc = Path::new(server_conf.get_output_directory());
+        let db_loc = db_loc.join(server_conf.get_database_name());
 
         if !db_loc.exists() {
-            let _ = try!(File::create(db_loc));
+            let _ = File::create(&db_loc)?;
         }
 
-        let database = sql::DatabaseRef::new(db_loc)?;
+        let database = sql::DatabaseRef::new(&db_loc)?;
 
         let mut router = Router::new();
         router.get("/", web::web_handler::home_handler, "index");
         router.get("/videos/:query", web::web_handler::individual_video_handler, "query");
 
-        let iron_serv_res = Iron::new(router).http(ip_tuple.1);
+        let iron_serv_res = Iron::new(router).http(server_conf.get_web_server_port());
 
         init_av();
-        let client_stream = try!(ClientStream::new(database));
+        let client_stream = try!(ClientStream::new(database, server_conf.get_output_directory().to_str().unwrap().to_owned()));
 
         match iron_serv_res {
             Ok(item) => return Ok(RecordingServer { 
                 listener: Arc::new(tcp), 
                 iron_server: item, 
-                client_handler: ClientHandler::new(Arc::new(Mutex::new(client_stream))),
+                client_handler: ClientHandler::new(client_stream),
             }),
             Err(_) => return Err(ServerError::new(ServerErrorKind::IronError)),
         }
@@ -79,8 +83,9 @@ impl RecordingServer {
 pub struct ClientHandler(Arc<Mutex<ClientStream>>);
 
 impl ClientHandler {
-    pub fn new(internal: Arc<Mutex<ClientStream>>) -> ClientHandler {
-        ClientHandler(internal)
+
+    pub fn new(internal: ClientStream) -> ClientHandler {
+        ClientHandler(Arc::new(Mutex::new(internal)))
     }
 
     pub fn start_recording(&self) {

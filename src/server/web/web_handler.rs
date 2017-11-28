@@ -27,3 +27,17 @@ pub fn individual_video_handler(req: &mut Request) -> IronResult<Response> {
         }
     }
 }
+
+pub fn control_panel_handler(req: &mut Request) -> IronResult<Response> {
+    let ref query = req.extensions.get::<Router>();
+    match *query {
+        Some(q) => {
+            let res: Response = Response::with((status::NotFound, "Under Construction"));
+            Ok(res)
+        },
+        None => {
+            let res: Response = Response::with((status::NotFound, "Not Found!"));
+            Ok(res)
+        },
+    }
+}

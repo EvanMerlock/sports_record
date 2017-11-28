@@ -40,6 +40,7 @@ impl RecordingServer {
         let mut router = Router::new();
         router.get("/", web::web_handler::home_handler, "index");
         router.get("/videos/:query", web::web_handler::individual_video_handler, "query");
+        router.get("/panel/:cpanel", web::web_handler::control_panel_handler, "control_panel");
 
         let iron_serv_res = Iron::new(router).http(server_conf.get_web_server_port());
 

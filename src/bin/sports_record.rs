@@ -74,13 +74,6 @@ fn run_server() -> Result<(), ServerError> {
 
 }
 
-fn strs_to_socket_tuple(ip_one: &str, ip_two: &str) -> Result<(SocketAddr, SocketAddr), AddrParseError> {
-    let socket_one = try!(string_to_socket(ip_one));
-    let socket_two = try!(string_to_socket(ip_two));
-
-    Ok((socket_one, socket_two))
-}
-
 fn string_to_socket(ip: &str) -> Result<SocketAddr, AddrParseError> {
     SocketAddr::from_str(ip)
 }

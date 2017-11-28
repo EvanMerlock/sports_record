@@ -96,7 +96,7 @@ impl ClientStream {
     }
 
     pub fn start_recording(&self) {
-        self.db_access.start_play();
+        let _ = self.db_access.start_play();
         self.send_command(RecordingInstructions::StartRecording);
     }
 
@@ -169,7 +169,6 @@ fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger
 
     let mut currently_recv = false;
     let mut on_ending_payload = false;
-    let mut stream_open = true;
     let mut frames_read = 0;
     let mut current_output_context = Cell::new(Option::None);
     let stream_timebase = Cell::new(Rational::default());
@@ -181,10 +180,6 @@ fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger
 
     // internal loop
     loop {
-        if !stream_open {
-            break;
-        }
-
         match instr_recv.try_recv() {
             Ok(ref m) if m == &TranslatedRecordingInstructions::Start => {
                 currently_recv = true;
@@ -229,7 +224,7 @@ fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger
                                     for mut pkt in pkts.into_iter().map(|x| Packet::from(x)) {
                                         println!("Recieved packet from client with pts {}", pkt.pts);
                                         pkt.rescale_to(Rational::new(1,30), stream_timebase.get());
-                                        let mut format_context = current_output_context.get_mut().as_mut().expect("desync");
+                                        let format_context = current_output_context.get_mut().as_mut().expect("desync");
                                         let _ = format_context.write_video_frame(stream_index.get(), pkt)?;
                                     }
                                 },
@@ -253,7 +248,7 @@ fn looping_recv_video(conf: StreamConfiguration, mut read_channel: DualMessenger
 
         if on_ending_payload {
             let mut temp_context = current_output_context.replace(Option::None);
-            let mut format_context = temp_context.as_mut().expect("desync");
+            let format_context = temp_context.as_mut().expect("desync");
             println!("Current read ended, {} frames read.", frames_read);
             try!(format_context.write_null_video_frame());
             try!(format_context.write_video_trailer());

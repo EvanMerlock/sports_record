@@ -20,7 +20,7 @@ impl DatabaseRef {
             let _ = try!(File::create(loc));
         }
 
-        let mut connection = try!(rusqlite::Connection::open(loc.to_owned()));
+        let connection = try!(rusqlite::Connection::open(loc.to_owned()));
 
         connection.execute("PRAGMA foriegn_keys = 1", &[])?;
         connection.execute("CREATE TABLE IF NOT EXISTS games (id INTEGER PRIMARY KEY ASC, date TEXT)", &[])?;

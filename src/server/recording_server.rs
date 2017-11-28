@@ -1,4 +1,4 @@
-use std::net::{TcpListener, SocketAddr};
+use std::net::{TcpListener, TcpStream, SocketAddr};
 use std::thread;
 use std::result::Result;
 use std::path::Path;
@@ -64,14 +64,13 @@ impl RecordingServer {
 
     pub fn start_handling_requests(&self) {
         let listener = self.listener.clone();
-        let ip_sender = self.client_handler.get_internal();
+        let ip_sender = self.client_handler.clone();
         thread::spawn(move || {
             for stream in listener.incoming() {
                 match stream {
                     Ok(stream) => {
                             println!("Received Client: {:?}", stream.peer_addr());
-                            let mut lock = ip_sender.lock().unwrap();
-                            let _ = lock.add_client(stream);
+                            let _ = ip_sender.add_client(stream);
                     }
                     Err(e) => println!("An error occurred: {}", e), 
                 }
@@ -81,6 +80,7 @@ impl RecordingServer {
 
 }
 
+#[derive(Clone)]
 pub struct ClientHandler(Arc<Mutex<ClientStream>>);
 
 impl ClientHandler {
@@ -102,6 +102,11 @@ impl ClientHandler {
     pub fn clean_up(&self) {
         let mut lock = self.0.lock().unwrap();
         lock.clean_up();
+    }
+
+    pub fn add_client(&self, info: TcpStream) {
+        let mut lock = self.0.lock().unwrap();
+        let _ = lock.add_client(info);
     }
 
     pub fn remove_client(&self, info: SocketAddr) {

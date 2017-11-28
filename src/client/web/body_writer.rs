@@ -9,7 +9,7 @@ use iron::response::WriteBody;
 use liquid;
 use liquid::{Context, Value, Renderable};
 
-const STREAM_TEMPLATE_PAGE: &'static str = include_str!("../../../html/video_stream.html");
+const STREAM_TEMPLATE_PAGE: &'static str = include_str!("../../../html/client/video_stream.html");
 
 pub fn stream_handler(_: &mut Request) -> IronResult<Response> {
     let mut res: Response = Response::with((status::Ok, StreamRenderer));

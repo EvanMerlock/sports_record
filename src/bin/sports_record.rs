@@ -35,7 +35,7 @@ fn run_server() -> Result<(), ServerError> {
         }; 
     let server = RecordingServer::new(server_config)?;
 
-    let messenger = server.get_client_handler();
+    let mut messenger = server.get_client_handler();
 
     server.start_handling_requests();
 

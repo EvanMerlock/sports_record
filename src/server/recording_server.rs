@@ -21,7 +21,7 @@ use config::server_configuration::ServerConfiguration;
 pub struct RecordingServer {
     listener: Arc<TcpListener>,
     iron_server: Listening,
-    client_handler: ClientHandler,
+    client_handler: ClientStream,
 }
 
 impl RecordingServer {
@@ -51,20 +51,20 @@ impl RecordingServer {
             Ok(item) => return Ok(RecordingServer { 
                 listener: Arc::new(tcp), 
                 iron_server: item, 
-                client_handler: ClientHandler::new(client_stream),
+                client_handler: client_stream,
             }),
             Err(_) => return Err(ServerError::new(ServerErrorKind::IronError)),
         }
 
     }
 
-    pub fn get_client_handler(&self) -> &ClientHandler {
-        &self.client_handler
+    pub fn get_client_handler(&self) -> ClientStream {
+        self.client_handler.clone()
     }
 
     pub fn start_handling_requests(&self) {
         let listener = self.listener.clone();
-        let ip_sender = self.client_handler.clone();
+        let mut ip_sender = self.client_handler.clone();
         thread::spawn(move || {
             for stream in listener.incoming() {
                 match stream {
@@ -78,43 +78,4 @@ impl RecordingServer {
         });
     }
 
-}
-
-#[derive(Clone)]
-pub struct ClientHandler(Arc<Mutex<ClientStream>>);
-
-impl ClientHandler {
-
-    pub fn new(internal: ClientStream) -> ClientHandler {
-        ClientHandler(Arc::new(Mutex::new(internal)))
-    }
-
-    pub fn start_recording(&self) {
-        let lock = self.0.lock().unwrap();
-        lock.start_recording();
-    }
-
-    pub fn stop_recording(&self) {
-        let lock = self.0.lock().unwrap();
-        lock.stop_recording();
-    }
-
-    pub fn clean_up(&self) {
-        let mut lock = self.0.lock().unwrap();
-        lock.clean_up();
-    }
-
-    pub fn add_client(&self, info: TcpStream) {
-        let mut lock = self.0.lock().unwrap();
-        let _ = lock.add_client(info);
-    }
-
-    pub fn remove_client(&self, info: SocketAddr) {
-        let mut lock = self.0.lock().unwrap();
-        lock.remove_client(info);
-    }
-
-    fn get_internal(&self) -> Arc<Mutex<ClientStream>> {
-        self.0.clone()
-    }
 }

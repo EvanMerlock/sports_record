@@ -2,6 +2,7 @@ use std::net::{TcpStream, SocketAddr, Shutdown};
 use std::thread;
 use std::thread::JoinHandle;
 use std::result::Result;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{Sender, Receiver, channel, TryRecvError};
 use std::io::Write;
 use std::cell::Cell;
@@ -23,8 +24,9 @@ use messenger_plus::stream;
 
 use ffmpeg_sys::*;
 
+#[derive(Clone)]
 pub struct ClientStream {
-    current_clients: Vec<ClientThreadInformation>,
+    current_clients: Arc<Mutex<Vec<ClientThreadInformation>>>,
     db_access: sql::DatabaseRef,
     out_dir: String
 }
@@ -69,7 +71,7 @@ impl ClientStream {
 
     pub fn new(db_ref: sql::DatabaseRef, out_dir: String) -> Result<ClientStream, ServerError> {
         let stream = ClientStream {
-            current_clients: vec![],
+            current_clients: Arc::new(Mutex::new(vec![])),
             db_access: db_ref,
             out_dir: out_dir,
         };
@@ -78,21 +80,23 @@ impl ClientStream {
 
     pub fn add_client(&mut self, info: TcpStream) -> Result<(), ServerError> {
         let socket_addr = try!(info.peer_addr());
-        self.current_clients.push(ClientThreadInformation::new(socket_addr, info, self.db_access.clone(), self.out_dir.clone()));
+        let mut lock = self.current_clients.lock().unwrap();
+        lock.push(ClientThreadInformation::new(socket_addr, info, self.db_access.clone(), self.out_dir.clone()));
         Ok(())
     }
 
     pub fn remove_client(&mut self, info: SocketAddr) {
         let mut new_thread_list: Vec<ClientThreadInformation> = Vec::new();
 
-        for thread_info in self.current_clients.drain(0..) {
+        let mut lock = self.current_clients.lock().unwrap();
+        for thread_info in lock.drain(0..) {
             if !(thread_info.socket_addr == info) {
                 new_thread_list.push(thread_info);
             } else {
                 let _ = thread_info.thread_channel.send(RecordingInstructions::Cleanup);
             }
         }
-        self.current_clients.append(&mut new_thread_list);
+        lock.append(&mut new_thread_list);
     }
 
     pub fn start_recording(&self) {
@@ -107,11 +111,13 @@ impl ClientStream {
 
     pub fn clean_up(&mut self) {
         self.send_command(RecordingInstructions::Cleanup);
-        self.current_clients.clear();
+        let mut lock = self.current_clients.lock().unwrap();
+        lock.clear();
     }
 
     fn send_command(&self, current_command: RecordingInstructions) {
-        for item in &self.current_clients {
+        let lock = self.current_clients.lock().unwrap();
+        for item in &*lock {
             let _ = item.thread_channel.send(current_command);
         }
     }

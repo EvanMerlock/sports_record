@@ -11,9 +11,9 @@ use client::CameraConfiguration;
 use client::errors::ClientError;
 use client::{ClientStatusFlag, send_video};
 use client::web::WebHandler;
-use networking::NetworkPacket;
+use ffmpeg_common::networking::NetworkPacket;
 
-use unsafe_code::UnsafeError;
+use ffmpeg_common::unsafe_code::UnsafeError;
 
 pub struct Client {
     name: String,

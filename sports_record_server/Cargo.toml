@@ -1,0 +1,30 @@
+[package]
+name = "sports_record_server"
+version = "0.1.0"
+authors = ["Evan Merlock <vnmrlck@gmail.com>"]
+workspace = "../"
+
+[dependencies]
+ffmpeg_common = { path = "../ffmpeg_common" }
+
+messenger_plus = { path = "../../messager_plus" }
+
+iron = "0.5.1"
+router = "0.5.0"
+websocket = { version = "0.20.2", features = ["sync", "sync-ssl"] }
+liquid = "0.10.1"
+base64 = "0.7.0"
+rand = "0.3.18"
+
+uuid = { version = "0.2", features = ["v4"] }
+
+rusqlite = "0.10.1"
+
+ffmpeg-sys = "3.2.1"
+libc = "0.2.19"
+time = "0.1.36"
+
+serde = "1.0.11"
+serde_derive = "1.0.15"
+serde_json = "1.0.4"
+toml = "0.4"

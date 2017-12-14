@@ -11,11 +11,11 @@ use std::default::Default;
 use std::ffi::CString;
 
 use server::{ServerError, sql};
-use unsafe_code::StreamConfiguration;
+use ffmpeg_common::unsafe_code::StreamConfiguration;
 
-use unsafe_code::format::{FormatContext, OutputContext};
-use unsafe_code::{EncodingCodecContext, Rational, CodecId, Packet, UnsafeError, UnsafeErrorKind};
-use networking::{NetworkPacket, NetworkConfiguration};
+use ffmpeg_common::unsafe_code::format::{FormatContext, OutputContext};
+use ffmpeg_common::unsafe_code::{EncodingCodecContext, Rational, CodecId, Packet, UnsafeError, UnsafeErrorKind};
+use ffmpeg_common::networking::{NetworkPacket, NetworkConfiguration};
 
 use uuid::Uuid;
 use serde_json;

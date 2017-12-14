@@ -9,7 +9,7 @@ use server::client_handling::*;
 use server::web;
 use server::{ ServerError, ServerErrorKind, sql };
 
-use unsafe_code::init_av;
+use ffmpeg_common::unsafe_code::init_av;
 
 use rusqlite::Connection;
 use iron::prelude::*;

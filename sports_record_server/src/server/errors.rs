@@ -9,7 +9,7 @@ use std::env;
 
 use server::ServerConfigurationError;
 
-use unsafe_code::UnsafeError;
+use ffmpeg_common::unsafe_code::UnsafeError;
 
 use rusqlite;
 

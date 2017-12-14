@@ -17,7 +17,5 @@ extern crate liquid;
 extern crate base64;
 extern crate rand;
 
-pub mod server;
-pub mod client;
 pub mod unsafe_code;
 pub mod networking;

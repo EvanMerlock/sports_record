@@ -8,12 +8,12 @@ use std::net::SocketAddr;
 use client::ClientStatusFlag;
 
 use client::CameraConfiguration;
-use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational, CodecId, Frame};
-use unsafe_code::format::{FormatContext, InputContext, Stream};
-use unsafe_code::sws::SWSContext;
-use unsafe_code::{Packet, DataPacket, EncodingCodecContext, DecodingCodecContext};
-use unsafe_code::StreamConfiguration;
-use networking::{NetworkPacket, NetworkConfiguration};
+use ffmpeg_common::unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational, CodecId, Frame};
+use ffmpeg_common::unsafe_code::format::{FormatContext, InputContext, Stream};
+use ffmpeg_common::unsafe_code::sws::SWSContext;
+use ffmpeg_common::unsafe_code::{Packet, DataPacket, EncodingCodecContext, DecodingCodecContext};
+use ffmpeg_common::unsafe_code::StreamConfiguration;
+use ffmpeg_common::networking::{NetworkPacket, NetworkConfiguration};
 
 use ffmpeg_sys::*;
 

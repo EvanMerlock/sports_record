@@ -5,7 +5,7 @@ use std::io;
 use std::net::AddrParseError;
 use std::str;
 use std::env;
-use unsafe_code::UnsafeError;
+use ffmpeg_common::unsafe_code::UnsafeError;
 use client::ClientConfigurationError;
 
 #[derive(Debug)]

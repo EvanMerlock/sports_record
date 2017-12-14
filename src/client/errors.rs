@@ -6,7 +6,7 @@ use std::net::AddrParseError;
 use std::str;
 use std::env;
 use unsafe_code::UnsafeError;
-use config::client_configuration::ClientConfigurationError;
+use client::ClientConfigurationError;
 
 #[derive(Debug)]
 pub enum ClientErrorKind {

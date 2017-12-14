@@ -7,7 +7,7 @@ use std::net::AddrParseError;
 use std::sync::mpsc::RecvError;
 use std::env;
 
-use config::server_configuration::ServerConfigurationError;
+use server::ServerConfigurationError;
 
 use unsafe_code::UnsafeError;
 

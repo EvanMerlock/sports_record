@@ -7,9 +7,7 @@ use std::path::Path;
 use std::fs::File;
 use std::io::{stdin, BufRead};
 
-use sports_record::config::server_configuration::ServerConfiguration;
-use sports_record::server::ServerError;
-use sports_record::server::RecordingServer;
+use sports_record::server::{ServerError, ServerConfiguration, RecordingServer};
 
 fn main() {
     println!("{:?}", run_server());

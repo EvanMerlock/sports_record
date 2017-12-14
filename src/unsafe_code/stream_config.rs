@@ -1,4 +1,5 @@
 use std::convert::From;
+use std::net::SocketAddr;
 
 use unsafe_code::{Rational, PixelFormat, CodecId, CodecContext, Codec};
 use unsafe_code::format::Stream;

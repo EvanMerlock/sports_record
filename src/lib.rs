@@ -15,9 +15,9 @@ extern crate toml;
 extern crate websocket;
 extern crate liquid;
 extern crate base64;
+extern crate rand;
 
 pub mod server;
 pub mod client;
 pub mod unsafe_code;
-pub mod config;
 pub mod networking;

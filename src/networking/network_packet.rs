@@ -1,17 +1,17 @@
 use std::convert::From;
 use std::io::Write;
 
-use config::stream_config::StreamConfiguration;
-
 use unsafe_code::DataPacket;
 use unsafe_code::UnsafeError;
+
+use networking::NetworkConfiguration;
 
 use serde_json;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum NetworkPacket {
     PacketStream(Vec<DataPacket>),
-    JSONPayload(StreamConfiguration),
+    JSONPayload(NetworkConfiguration),
     PayloadEnd,
 }
 
@@ -21,8 +21,8 @@ impl From<Vec<DataPacket>> for NetworkPacket {
     }
 }
 
-impl From<StreamConfiguration> for NetworkPacket {
-    fn from(item: StreamConfiguration) -> NetworkPacket {
+impl From<NetworkConfiguration> for NetworkPacket {
+    fn from(item: NetworkConfiguration) -> NetworkPacket {
         NetworkPacket::JSONPayload(item)
     }
 }

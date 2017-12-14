@@ -21,10 +21,12 @@ pub struct WebHandler {
     clients: Arc<Mutex<Vec<WebClient>>>,
     sender: Sender<Arc<Vec<u8>>>,
     web_server: Listening,
+    pub sockets: (SocketAddr, SocketAddr)
 }
 
 impl WebHandler {
     pub fn new(sock: (SocketAddr, SocketAddr)) -> io::Result<WebHandler> {
+        let sock_copy = sock.clone();
         let server = Server::bind(sock.0)?;
         
         let mut router = Router::new();
@@ -58,7 +60,7 @@ impl WebHandler {
                 }
             }
         });
-        Ok(WebHandler { clients: clients.clone(), sender: tx, web_server: iron_server_res })
+        Ok(WebHandler { clients: clients.clone(), sender: tx, web_server: iron_server_res, sockets: sock_copy })
     }
 
     pub fn get_sender(&self) -> Sender<Arc<Vec<u8>>> {

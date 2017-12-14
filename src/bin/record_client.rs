@@ -6,8 +6,7 @@ use std::env;
 use std::path::Path;
 use std::fs::File;
 
-use sports_record::config::client_configuration::ClientConfiguration;
-use sports_record::client::ClientError;
+use sports_record::client::{ClientError, ClientConfiguration};
 use sports_record::client::client_struct::{Client};
 
 fn main() {

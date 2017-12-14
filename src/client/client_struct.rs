@@ -7,7 +7,7 @@ use std::cell::Cell;
 
 use messenger_plus::stream::DualMessenger;
 use messenger_plus::stream;
-use config::client_configuration::CameraConfiguration;
+use client::CameraConfiguration;
 use client::errors::ClientError;
 use client::{ClientStatusFlag, send_video};
 use client::web::WebHandler;
@@ -34,7 +34,7 @@ impl Client {
         let write_stream = try!(self.stream.try_clone());
         let mut read_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), read_stream);
         let write_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), write_stream);
-        let video_processing = ClientVideoThreadHandler::new(write_channel, camera_config, arc_sender);
+        let video_processing = ClientVideoThreadHandler::new(write_channel, camera_config, arc_sender, self.http_server.sockets.0.clone());
 
         let mut stream_open = true;
         
@@ -85,11 +85,11 @@ struct ClientVideoThreadHandler {
 }
 
 impl ClientVideoThreadHandler {
-    fn new<'a>(mut write_channel: DualMessenger<TcpStream>, camera_config: CameraConfiguration, jpeg_sender: Sender<Arc<Vec<u8>>>) -> ClientVideoThreadHandler {
+    fn new<'a>(mut write_channel: DualMessenger<TcpStream>, camera_config: CameraConfiguration, jpeg_sender: Sender<Arc<Vec<u8>>>, sock: SocketAddr) -> ClientVideoThreadHandler {
         let (instr_tx, instr_rx) = channel();
         let (tx, rx) = channel::<NetworkPacket>();
-        let send_video_handle = thread::Builder::new().name("send_video_thread".to_string()).spawn(|| {
-            println!("Send Video Completion Status: {:?}", send_video(camera_config, instr_rx, tx, jpeg_sender));
+        let send_video_handle = thread::Builder::new().name("send_video_thread".to_string()).spawn(move || {
+            println!("Send Video Completion Status: {:?}", send_video(camera_config, instr_rx, tx, jpeg_sender, sock));
         }).unwrap();
         let write_video_handle = thread::Builder::new().name("write_video_thread".to_string()).spawn(move || {
             for item in rx {

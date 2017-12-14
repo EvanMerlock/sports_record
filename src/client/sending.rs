@@ -3,16 +3,17 @@ use std::thread::JoinHandle;
 use std::sync::mpsc::{channel, Sender, Receiver, TryRecvError};
 use std::sync::Arc;
 use std::cell::Cell;
+use std::net::SocketAddr;
 
 use client::ClientStatusFlag;
 
-use config::client_configuration::CameraConfiguration;
+use client::CameraConfiguration;
 use unsafe_code::{init_av, CodecStorage, UnsafeError, UnsafeErrorKind, Rational, CodecId, Frame};
 use unsafe_code::format::{FormatContext, InputContext, Stream};
 use unsafe_code::sws::SWSContext;
 use unsafe_code::{Packet, DataPacket, EncodingCodecContext, DecodingCodecContext};
-use config::stream_config::StreamConfiguration;
-use networking::NetworkPacket;
+use unsafe_code::StreamConfiguration;
+use networking::{NetworkPacket, NetworkConfiguration};
 
 use ffmpeg_sys::*;
 
@@ -21,7 +22,7 @@ enum PacketMessage {
     Flush,
 }
 
-pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver<ClientStatusFlag>, stream: Sender<NetworkPacket>, jpeg_sender: Sender<Arc<Vec<u8>>>) -> Result<(), UnsafeError> {  
+pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver<ClientStatusFlag>, stream: Sender<NetworkPacket>, jpeg_sender: Sender<Arc<Vec<u8>>>, sock: SocketAddr) -> Result<(), UnsafeError> {  
     init_av();
 
     //INPUT ALLOCATION
@@ -33,7 +34,8 @@ pub fn send_video(camera_config: CameraConfiguration, message_transfer: Receiver
 
     let context_storage = try!(generate_contexts(&mut in_str));
     let output_stream_configuration = StreamConfiguration::from(<EncodingCodecContext as AsRef<AVCodecContext>>::as_ref(&context_storage.encoding_context));
-    let _ = stream.send(NetworkPacket::JSONPayload(output_stream_configuration));
+    let network_config = NetworkConfiguration::new(output_stream_configuration, sock);
+    let _ = stream.send(NetworkPacket::JSONPayload(network_config));
 
     let sender = jpeg_sender;
 

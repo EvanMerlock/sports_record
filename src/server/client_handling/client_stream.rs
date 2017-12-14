@@ -2,7 +2,7 @@ use std::net::{TcpStream, SocketAddr, Shutdown};
 use std::thread;
 use std::thread::JoinHandle;
 use std::result::Result;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Weak, Mutex, MutexGuard};
 use std::sync::mpsc::{Sender, Receiver, channel, TryRecvError};
 use std::io::Write;
 use std::cell::Cell;
@@ -11,16 +11,18 @@ use std::default::Default;
 use std::ffi::CString;
 
 use server::{ServerError, sql};
-use config::stream_config::StreamConfiguration;
+use unsafe_code::StreamConfiguration;
 
 use unsafe_code::format::{FormatContext, OutputContext};
 use unsafe_code::{EncodingCodecContext, Rational, CodecId, Packet, UnsafeError, UnsafeErrorKind};
-use networking::NetworkPacket;
+use networking::{NetworkPacket, NetworkConfiguration};
 
 use uuid::Uuid;
 use serde_json;
 use messenger_plus::stream::{DualMessenger};
 use messenger_plus::stream;
+
+use iron::typemap;
 
 use ffmpeg_sys::*;
 
@@ -31,8 +33,14 @@ pub struct ClientStream {
     out_dir: String
 }
 
+#[derive(Clone)]
+pub struct WeakClientStream {
+    current_clients: Weak<Mutex<Vec<ClientThreadInformation>>>,
+}
+
 pub struct ClientThreadInformation {
     socket_addr: SocketAddr,
+    pub ws_url: SocketAddr,
     thread_handle: JoinHandle<()>,
     thread_channel: Sender<RecordingInstructions>,
 }
@@ -51,13 +59,27 @@ pub enum RecordingInstructions {
 }
 
 impl ClientThreadInformation {
-    pub fn new(sock: SocketAddr, tcp_stream: TcpStream, db_ref: sql::DatabaseRef, out_dir: String) -> ClientThreadInformation {
+    pub fn new(sock: SocketAddr, tcp_stream: TcpStream, db_ref: sql::DatabaseRef, out_dir: String) -> Result<ClientThreadInformation, UnsafeError> {
+        let stream = tcp_stream.try_clone()?;
+        println!("Attempting to retrieve stream configuration from client {}", stream.peer_addr()?);
+        let mut read_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), stream);
+
+        let results = read_channel.read_next_message().map_err(|x| UnsafeError::from(x))?;
+        let stream_config = serde_json::from_slice::<NetworkPacket>(results.as_ref()).map_err(|x| UnsafeError::from(x))?;
+        let unwrapped_config = match stream_config {
+            NetworkPacket::JSONPayload(e) => e,
+            _ => return Err(UnsafeError::new(UnsafeErrorKind::OpenInput(1000))),
+        };
+        println!("Retreived stream configuration from client {}", tcp_stream.peer_addr()?);
+        println!("{:?}", unwrapped_config);
+
         let (send, recv) = channel();
+        let ws_sock = unwrapped_config.websocket_address.clone(); 
         let thread_handle = thread::spawn(move || {
-            let val = client_write_handler(tcp_stream, recv, db_ref, out_dir);
+            let val = client_write_handler(tcp_stream, recv, db_ref, out_dir, unwrapped_config);
             println!("{:?}", val);
         });
-        ClientThreadInformation { socket_addr: sock, thread_handle: thread_handle, thread_channel: send }
+        Ok(ClientThreadInformation { socket_addr: sock, thread_handle: thread_handle, thread_channel: send, ws_url: ws_sock })
     }
 }
 
@@ -81,7 +103,7 @@ impl ClientStream {
     pub fn add_client(&mut self, info: TcpStream) -> Result<(), ServerError> {
         let socket_addr = try!(info.peer_addr());
         let mut lock = self.current_clients.lock().unwrap();
-        lock.push(ClientThreadInformation::new(socket_addr, info, self.db_access.clone(), self.out_dir.clone()));
+        lock.push(ClientThreadInformation::new(socket_addr, info, self.db_access.clone(), self.out_dir.clone())?);
         Ok(())
     }
 
@@ -97,6 +119,10 @@ impl ClientStream {
             }
         }
         lock.append(&mut new_thread_list);
+    }
+
+    pub fn get_client_view(&self) -> MutexGuard<Vec<ClientThreadInformation>> {
+        self.current_clients.lock().expect("mutex poisoned")
     }
 
     pub fn start_recording(&self) {
@@ -122,9 +148,25 @@ impl ClientStream {
         }
     }
 
+    pub fn get_weak(&self) -> WeakClientStream {
+        WeakClientStream {
+            current_clients: Arc::downgrade(&self.current_clients)
+        }
+    }
+
 }
 
-fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>, db_ref: sql::DatabaseRef, out_dir: String) -> Result<(), ServerError> {
+impl WeakClientStream {
+    pub fn get_client_view(&self) -> Option<Arc<Mutex<Vec<ClientThreadInformation>>>> {
+        self.current_clients.upgrade()
+    }
+}
+
+impl typemap::Key for WeakClientStream {
+    type Value = WeakClientStream;
+}
+
+fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>, db_ref: sql::DatabaseRef, out_dir: String, cfg: NetworkConfiguration) -> Result<(), ServerError> {
 
     let mut currently_cleaning = false;
 
@@ -134,17 +176,7 @@ fn client_write_handler(stream: TcpStream, recv: Receiver<RecordingInstructions>
     let mut read_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), read_stream);
     let mut write_channel: DualMessenger<TcpStream> = DualMessenger::new(String::from("--"), String::from("boundary"), String::from("endboundary"), write_stream);
 
-    println!("Attempting to retrieve stream configuration from client {}", stream.peer_addr()?);
-    let results = read_channel.read_next_message().map_err(|x| UnsafeError::from(x))?;
-    let stream_config = serde_json::from_slice::<NetworkPacket>(results.as_ref()).map_err(|x| UnsafeError::from(x))?;
-    let unwrapped_config = match stream_config {
-        NetworkPacket::JSONPayload(e) => e,
-        _ => return Err(ServerError::from(UnsafeError::new(UnsafeErrorKind::OpenInput(1000)))),
-    };
-    println!("Retreived stream configuration from client {}", stream.peer_addr()?);
-    println!("{:?}", unwrapped_config);
-
-    let mut stcth = LoopingThreadHandler::new(unwrapped_config, read_channel, db_ref, out_dir);
+    let mut stcth = LoopingThreadHandler::new(cfg.stream_configuration, read_channel, db_ref, out_dir);
 
     while !currently_cleaning {
         loop {

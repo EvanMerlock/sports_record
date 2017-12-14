@@ -11,6 +11,7 @@ mod traits;
 mod frame;
 mod data_packet;
 mod packet;
+mod stream_config;
 
 pub use self::codec::*;
 pub use self::utils::*;
@@ -19,3 +20,4 @@ pub use self::traits::*;
 pub use self::frame::*;
 pub use self::data_packet::*;
 pub use self::packet::*;
+pub use self::stream_config::*;

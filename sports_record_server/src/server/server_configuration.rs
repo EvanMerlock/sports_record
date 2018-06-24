@@ -59,12 +59,10 @@ impl From<toml::ser::Error> for ServerConfigurationError {
 pub struct ServerConfiguration {
     team_name: String,
 
-    clip_server_port: SocketAddr,
-    web_server_port: SocketAddr,
-    discovery_port: SocketAddr,
-
     output_directory: PathBuf,
     database_name: String,
+
+    ip_configuration: IpConfiguration
 }
 
 impl ServerConfiguration {
@@ -83,16 +81,8 @@ impl ServerConfiguration {
         &self.team_name
     }
 
-    pub fn get_clip_server_port(&self) -> &SocketAddr {
-        &self.clip_server_port
-    }
-
-    pub fn get_web_server_port(&self) -> &SocketAddr {
-        &self.web_server_port
-    }
-
-    pub fn get_discovery_port(&self) -> &SocketAddr {
-        &self.discovery_port
+    pub fn get_ip_settings(&self) -> &IpConfiguration {
+        &self.ip_configuration
     }
 
     pub fn get_output_directory(&self) -> &Path {
@@ -110,12 +100,29 @@ impl Default for ServerConfiguration {
         ServerConfiguration {
             team_name: String::from("TEAM_NAME"),
 
-            clip_server_port: net::SocketAddr::new(net::IpAddr::from(net::Ipv4Addr::new(127, 0, 0, 1)), 8000),
-            web_server_port: net::SocketAddr::new(net::IpAddr::from(net::Ipv4Addr::new(127, 0, 0, 1)), 8080),
-            discovery_port: net::SocketAddr::new(net::IpAddr::from(net::Ipv4Addr::new(127, 0, 0, 1)), 9000),
-
             output_directory: PathBuf::from("./out/"),
             database_name: String::from("primary_database.db"),
+
+            ip_configuration: IpConfiguration::default(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct IpConfiguration {
+    clip_server_listen_ip: net::SocketAddr,
+    web_server_listen_ip: net::SocketAddr,
+    multicast_ip: net::SocketAddr,
+    discovery_port: u16,
+}
+
+impl Default for IpConfiguration {
+    fn default() -> Self {
+        IpConfiguration {
+            clip_server_listen_ip: net::SocketAddr::from(([127, 0, 0, 1], 8000)),
+            web_server_listen_ip: net::SocketAddr::from(([127, 0, 0, 1], 8080)),
+            discovery_port: 9000,
+            multicast_ip: net::Ipv4Addr::new(224, 0, 0, 12),
         }
     }
 }

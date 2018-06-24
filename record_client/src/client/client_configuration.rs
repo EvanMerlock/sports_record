@@ -56,8 +56,8 @@ impl From<toml::ser::Error> for ClientConfigurationError {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClientConfiguration {
     name: String,
-    mjpeg_address: net::SocketAddr,
 
+    ip_settings: IpConfiguration,
     camera_settings: CameraConfiguration,
 }
 
@@ -77,8 +77,8 @@ impl ClientConfiguration {
         &self.name
     }
 
-    pub fn get_mjpeg_address(&self) -> &net::SocketAddr {
-        &self.mjpeg_address
+    pub fn get_ip_settings(&self) -> &IpConfiguration {
+        &self.ip_settings
     }
 
     pub fn get_camera_settings(&self) -> &CameraConfiguration {
@@ -90,7 +90,7 @@ impl Default for ClientConfiguration {
     fn default() -> Self {
         ClientConfiguration {
             name: String::from("CAMERA_NAME"),
-            mjpeg_address: net::SocketAddr::new(net::IpAddr::from(net::Ipv4Addr::new(127, 0, 0, 1)), 8080),
+            ip_settings: IpConfiguration::default()
             camera_settings: CameraConfiguration::default(),
         }
     }
@@ -117,6 +117,43 @@ impl Default for CameraConfiguration {
         CameraConfiguration {
             input_type: String::from("v4l2"),
             location: String::from("/dev/video0")
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct IpConfiguration {
+    websocket_bind_address: SocketAddr,
+    http_bind_address: SocketAddr,
+    discovery_port: u16,
+    multicast_address: net::Ipv4Addr,
+}
+
+impl IpConfiguration {
+    pub fn get_multicast_ip(&self) -> net::Ipv4Addr {
+        self.multicast_address.clone()
+    }
+
+    pub fn get_ws_bind_address(&self) -> SocketAddr {
+        self.websocket_bind_address.clone()
+    }
+
+    pub fn get_http_bind_address(&self) -> SocketAddr {
+        self.http_bind_address.clone()
+    }
+
+    pub fn get_discovery_port(&self) -> u16 {
+        self.discovery_port
+    }
+}
+
+impl Default for IpConfiguration {
+    fn default() -> Self {
+        IpConfiguration {
+            multicast_address: net::Ipv4Addr::new(224, 0, 0, 12),
+            websocket_bind_address: SocketAddr::from(net::SocketAddrV4::new(net::Ipv4Addr::localhost(), 4000)),
+            http_bind_address: SocketAddr::from(net::SocketAddrV4::new(net::Ipv4Addr::localhost(), 8070)),
+            discovery_port: 9000,
         }
     }
 }

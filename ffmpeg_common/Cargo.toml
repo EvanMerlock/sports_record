@@ -5,7 +5,7 @@ authors = ["Evan Merlock <vnmrlck@gmail.com>"]
 workspace = "../"
 
 [dependencies]
-messenger_plus = { path = "../../messenger-plus" }
+messenger_plus = { git = "https://github.com/deadlyelectron/messenger-plus" }
 
 iron = "0.5.1"
 router = "0.5.0"

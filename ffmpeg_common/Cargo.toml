@@ -5,7 +5,7 @@ authors = ["Evan Merlock <vnmrlck@gmail.com>"]
 workspace = "../"
 
 [dependencies]
-messenger_plus = { path = "../../messager_plus" }
+messenger_plus = { path = "../../messenger-plus" }
 
 iron = "0.5.1"
 router = "0.5.0"

@@ -1,4 +1,5 @@
 use std::net;
+use std::net::SocketAddr;
 use std::io::{Write, Read};
 use std::io;
 use std::fs::File;
@@ -90,7 +91,7 @@ impl Default for ClientConfiguration {
     fn default() -> Self {
         ClientConfiguration {
             name: String::from("CAMERA_NAME"),
-            ip_settings: IpConfiguration::default()
+            ip_settings: IpConfiguration::default(),
             camera_settings: CameraConfiguration::default(),
         }
     }
@@ -151,8 +152,8 @@ impl Default for IpConfiguration {
     fn default() -> Self {
         IpConfiguration {
             multicast_address: net::Ipv4Addr::new(224, 0, 0, 12),
-            websocket_bind_address: SocketAddr::from(net::SocketAddrV4::new(net::Ipv4Addr::localhost(), 4000)),
-            http_bind_address: SocketAddr::from(net::SocketAddrV4::new(net::Ipv4Addr::localhost(), 8070)),
+            websocket_bind_address: SocketAddr::from(net::SocketAddrV4::new(net::Ipv4Addr::new(127, 0, 0, 1), 4000)),
+            http_bind_address: SocketAddr::from(net::SocketAddrV4::new(net::Ipv4Addr::new(127, 0, 0, 1), 8070)),
             discovery_port: 9000,
         }
     }
